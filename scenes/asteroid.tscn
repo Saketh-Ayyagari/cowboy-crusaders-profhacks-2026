@@ -11,7 +11,7 @@ script = ExtResource("1")
 
 [node name="AsteroidSprite" type="Sprite2D" parent="."]
 texture = ExtResource("2")
-scale = Vector2(0.041, 0.041)
+scale = Vector2(0.058, 0.058)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_placeholder")
