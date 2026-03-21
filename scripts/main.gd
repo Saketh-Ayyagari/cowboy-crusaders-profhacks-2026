@@ -3,9 +3,16 @@ extends Node2D
 ## Subtle downward scroll speed for the starfield (pixels per second).
 const BG_SCROLL_SPEED: float = 38.0
 
-## Ship intro fly-in: start Y (local to Player node) below the play area, tween to scene rest position.
+## Ship fly-in after start: begin Y (local to Player node) below the play area.
 @export var intro_ship_start_y: float = 1100.0
 @export var intro_ship_fly_duration: float = 1.75
+
+## Score: passive points per second while the run is active (not game over).
+@export var score_passive_per_second: float = 12.0
+## Bonus when a laser destroys a normal asteroid.
+@export var score_normal_destroy: int = 25
+## Bonus when a laser destroys an orange (fast) asteroid.
+@export var score_orange_destroy: int = 65
 
 const _HEART_FULL := preload("res://assets/art/heart_full.png")
 const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
@@ -47,11 +54,18 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 @onready var _game_root: Node2D = $GameRoot
 @onready var _spawn_manager: Node = $Managers/SpawnManager
 @onready var _intro_ui: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI
+@onready var _score_hud: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/ScoreHud
+@onready var _game_over_score_label: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/ScoreLabel
+
+var score: int = 0
+## Bumped in start_game(); asteroids only award if their meta matches (avoids stray points on reload).
+var score_session_id: int = 0
 
 var _run_started: bool = false
 var _is_game_over: bool = false
 var _intro_ship_rest_pos: Vector2 = Vector2.ZERO
 var _intro_ship_tween: Tween
+var _passive_score_carry: float = 0.0
 var _logged_no_feed_yet: bool = false
 var _webcam_setup_in_progress: bool = false
 var _bg_tile_height: float = 0.0
@@ -87,21 +101,21 @@ func _setup_game_over_ui() -> void:
 
 func _setup_intro() -> void:
 	_run_started = false
+	score = 0
+	_passive_score_carry = 0.0
 	if is_instance_valid(_spawn_manager):
 		_spawn_manager.process_mode = Node.PROCESS_MODE_DISABLED
 	if is_instance_valid(_player_ship):
 		_player_ship.controls_enabled = false
+		_player_ship.visible = false
 	if is_instance_valid(_intro_ui):
 		_intro_ui.visible = true
+	if is_instance_valid(_score_hud):
+		_score_hud.visible = false
+		_refresh_score_hud()
 	if not is_instance_valid(_player_ship):
 		return
 	_intro_ship_rest_pos = _player_ship.position
-	_player_ship.position = Vector2(_intro_ship_rest_pos.x, intro_ship_start_y)
-	_intro_ship_tween = create_tween()
-	_intro_ship_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_intro_ship_tween.tween_property(
-		_player_ship, "position", _intro_ship_rest_pos, intro_ship_fly_duration
-	)
 
 
 ## Call when the player is ready to play (Space / ui_accept now; jump later).
@@ -109,15 +123,41 @@ func start_game() -> void:
 	if _run_started or _is_game_over:
 		return
 	_run_started = true
+	score_session_id += 1
 	if _intro_ship_tween != null and is_instance_valid(_intro_ship_tween):
 		_intro_ship_tween.kill()
-	if is_instance_valid(_player_ship):
-		_player_ship.position = _intro_ship_rest_pos
-		_player_ship.controls_enabled = true
 	if is_instance_valid(_intro_ui):
 		_intro_ui.visible = false
+	if is_instance_valid(_score_hud):
+		_score_hud.visible = true
 	if is_instance_valid(_spawn_manager):
 		_spawn_manager.process_mode = Node.PROCESS_MODE_INHERIT
+	if not is_instance_valid(_player_ship):
+		return
+	_player_ship.visible = true
+	_player_ship.controls_enabled = false
+	_player_ship.position = Vector2(_intro_ship_rest_pos.x, intro_ship_start_y)
+	_intro_ship_tween = create_tween()
+	_intro_ship_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_intro_ship_tween.tween_property(
+		_player_ship, "position", _intro_ship_rest_pos, intro_ship_fly_duration
+	)
+	_intro_ship_tween.tween_callback(_enable_player_after_intro_fly)
+
+
+func _enable_player_after_intro_fly() -> void:
+	if is_instance_valid(_player_ship):
+		_player_ship.controls_enabled = true
+
+
+func on_asteroid_destroyed(fast_orange: bool, asteroid_session_id: int) -> void:
+	if not _run_started or _is_game_over:
+		return
+	if asteroid_session_id != score_session_id:
+		return
+	var bonus := score_orange_destroy if fast_orange else score_normal_destroy
+	score += bonus
+	_refresh_score_hud()
 
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
@@ -128,6 +168,8 @@ func _on_player_health_changed(current: int, maximum: int) -> void:
 
 func _trigger_game_over() -> void:
 	_is_game_over = true
+	if is_instance_valid(_game_over_score_label):
+		_game_over_score_label.text = "Score: %d" % score
 	if is_instance_valid(_game_over_ui):
 		_game_over_ui.visible = true
 	# GamePanel uses MOUSE_FILTER_IGNORE during play so clicks reach the ship; enable hits for the overlay.
@@ -198,6 +240,21 @@ func _process(delta: float) -> void:
 	if _is_game_over:
 		return
 	_scroll_backgrounds(delta)
+	if _run_started:
+		_tick_passive_score(delta)
+
+
+func _tick_passive_score(delta: float) -> void:
+	_passive_score_carry += score_passive_per_second * delta
+	while _passive_score_carry >= 1.0:
+		_passive_score_carry -= 1.0
+		score += 1
+	_refresh_score_hud()
+
+
+func _refresh_score_hud() -> void:
+	if is_instance_valid(_score_hud):
+		_score_hud.text = "Score: %d" % score
 
 
 func _unhandled_input(event: InputEvent) -> void:
