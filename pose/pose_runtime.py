@@ -80,6 +80,10 @@ class RuntimeConfig:
     # Fixed JPEG dimensions so Godot TextureRect does not reflow every frame (reduces glitching).
     preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "1280")))
     preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "720")))
+    # Adaptive JPEG quality tuning for preview clarity over UDP.
+    preview_jpeg_quality: int = max(1, min(100, int(os.getenv("POSE_PREVIEW_JPEG_QUALITY", "85"))))
+    preview_jpeg_quality_min: int = max(1, min(100, int(os.getenv("POSE_PREVIEW_JPEG_QUALITY_MIN", "55"))))
+    preview_udp_max_bytes: int = max(1024, int(os.getenv("POSE_PREVIEW_UDP_MAX_BYTES", "60000")))
     # Requested webcam capture resolution (actual delivered size depends on camera/driver support).
     camera_out_w: int = max(64, int(os.getenv("POSE_CAMERA_OUT_W", "1280")))
     camera_out_h: int = max(48, int(os.getenv("POSE_CAMERA_OUT_H", "720")))
@@ -240,11 +244,17 @@ class PoseRuntime:
                 mid = src
             interp = cv.INTER_AREA if mid.shape[1] > tw or mid.shape[0] > th else cv.INTER_LINEAR
             small = cv.resize(mid, (tw, th), interpolation=interp)
-            ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), 48])
-            if not ok or buf is None:
-                return
-            payload = buf.tobytes()
-            if len(payload) > 60000:
+            quality = self.cfg.preview_jpeg_quality
+            min_quality = min(self.cfg.preview_jpeg_quality, self.cfg.preview_jpeg_quality_min)
+            payload = b""
+            while quality >= min_quality:
+                ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), int(quality)])
+                if ok and buf is not None:
+                    payload = buf.tobytes()
+                    if len(payload) <= self.cfg.preview_udp_max_bytes:
+                        break
+                quality -= 5
+            if not payload or len(payload) > self.cfg.preview_udp_max_bytes:
                 return
             self.preview_sock.sendto(payload, (self.cfg.udp_host, self.cfg.preview_udp_port))
         except Exception as exc:
