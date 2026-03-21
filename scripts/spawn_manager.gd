@@ -3,20 +3,32 @@ extends Node
 ## Assign `res://scenes/asteroid.tscn` in the Inspector. Leave empty to disable spawning.
 @export var asteroid_scene: PackedScene
 
-## How fast difficulty increases (spawn spacing tightens + asteroids speed up).
-@export var difficulty_ramp_per_second: float = 0.012
-## Shortest time between spawns as difficulty maxes out.
-@export var minimum_spawn_interval: float = 0.45
-## Starting seconds between each asteroid spawn.
+## Spawn timing: seconds between spawns at run start.
 @export var base_spawn_interval: float = 1.0
+## Floor — never spawn faster than this (seconds between spawn ticks).
+@export var minimum_spawn_interval: float = 0.42
+## How much the spawn interval shrinks per second of active play.
+@export var spawn_ramp_per_second: float = 0.008
 
-## Base fall speed before time scaling (pixels per second).
-@export var base_asteroid_speed: float = 250.0
-## Cap on global speed scaling from time (1.0 = no bonus).
-@export var max_speed_multiplier: float = 1.5
+## Speed: starting global multiplier on fall speed (before orange variant).
+@export var base_speed_multiplier: float = 1.0
+## Cap on global speed multiplier from time.
+@export var max_speed_multiplier: float = 1.45
+## How much the speed multiplier rises per second of active play.
+@export var speed_ramp_per_second: float = 0.0045
 
-## Extra multiplier for `asteroid2.png` (orange) — applied on top of time scaling.
+## Extra multiplier for `asteroid2.png` (orange) — stacks on top of time scaling.
 @export var orange_speed_multiplier: float = 1.85
+
+## Base fall speed before multipliers (pixels per second).
+@export var base_asteroid_speed: float = 250.0
+
+## Bursts: only after this many seconds of play can multi-spawns roll.
+@export var burst_unlock_time: float = 48.0
+## Chance (0–1) each spawn tick to spawn a burst instead of a single rock.
+@export var burst_chance: float = 0.14
+## Max asteroids in one burst (actual count is 2..max inclusive when burst fires).
+@export var max_burst_count: int = 3
 
 ## Random horizontal range for new asteroids (local x under the Asteroids node).
 @export var spawn_x_min: float = 80.0
@@ -32,7 +44,13 @@ const _ASTEROID_TEXTURES: Array[Texture2D] = [
 ]
 
 var _elapsed: float = 0.0
+## Active run time only while this node processes (intro off, game over off).
 var _run_time: float = 0.0
+
+
+func reset_for_run() -> void:
+	_elapsed = 0.0
+	_run_time = 0.0
 
 
 func _process(delta: float) -> void:
@@ -42,21 +60,30 @@ func _process(delta: float) -> void:
 	if _elapsed < interval:
 		return
 	_elapsed -= interval
-	_spawn_asteroid()
+	_spawn_tick()
 
 
 func _get_spawn_interval() -> float:
-	return maxf(minimum_spawn_interval, base_spawn_interval - difficulty_ramp_per_second * _run_time)
+	return maxf(minimum_spawn_interval, base_spawn_interval - spawn_ramp_per_second * _run_time)
 
 
 func _get_speed_scale() -> float:
-	return minf(max_speed_multiplier, 1.0 + difficulty_ramp_per_second * _run_time)
+	return minf(max_speed_multiplier, base_speed_multiplier + speed_ramp_per_second * _run_time)
 
 
-func _spawn_asteroid() -> void:
+func _spawn_tick() -> void:
+	var n := 1
+	if _run_time >= burst_unlock_time and randf() < burst_chance:
+		var hi := clampi(max_burst_count, 2, 3)
+		n = randi_range(2, hi)
+		print("SpawnManager: burst x%d @ t=%.1fs" % [n, _run_time])
+	for i in range(n):
+		_spawn_one_asteroid(i, n)
+
+
+func _spawn_one_asteroid(index_in_group: int, group_size: int) -> void:
 	if asteroid_scene == null:
 		return
-
 	var container := _get_asteroids_container()
 	if container == null:
 		return
@@ -82,8 +109,20 @@ func _spawn_asteroid() -> void:
 		spawned.set_meta("score_session_id", main_ref.score_session_id)
 
 	container.add_child(spawned)
-	var x := randf_range(spawn_x_min, spawn_x_max)
-	spawned.position = Vector2(x, spawn_y)
+	var x := _pick_spawn_x(index_in_group, group_size)
+	var y_jitter := float(index_in_group) * -6.0
+	spawned.position = Vector2(x, spawn_y + y_jitter)
+
+
+func _pick_spawn_x(index_in_group: int, group_size: int) -> float:
+	if group_size <= 1:
+		return randf_range(spawn_x_min, spawn_x_max)
+	var span := spawn_x_max - spawn_x_min
+	var seg := span / float(group_size)
+	var lo := spawn_x_min + float(index_in_group) * seg
+	var hi := lo + seg
+	var margin := seg * 0.08
+	return randf_range(lo + margin, hi - margin)
 
 
 func _get_asteroids_container() -> Node:

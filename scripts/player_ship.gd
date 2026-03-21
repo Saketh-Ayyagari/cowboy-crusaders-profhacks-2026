@@ -5,9 +5,10 @@ signal health_changed(current: int, maximum: int)
 ## Horizontal movement speed in pixels per second.
 @export var horizontal_speed: float = 400.0
 
-## Left and right bounds for x movement (min, max).
-## The ship's x position will be clamped to this range.
-@export var movement_bounds: Vector2 = Vector2(80, 1520)
+## World X where the portrait playfield starts (viewport uses 1:1 world pixels by default).
+@export var playfield_x_min: float = 0.0
+## World X where the playfield ends (left half of a 1600-wide window = 800; ship stays left of this).
+@export var playfield_x_max: float = 800.0
 
 ## Assign the laser scene in the Inspector (e.g. `res://scenes/laser.tscn`). Leave empty to disable firing.
 @export var laser_scene: PackedScene
@@ -21,6 +22,9 @@ signal health_changed(current: int, maximum: int)
 var current_health: int = 0
 var _fire_cooldown_remaining: float = 0.0
 
+## Cached half-width so the sprite/collision edges stay inside the playfield.
+var _ship_half_width_world: float = 16.0
+
 ## When false, movement and shooting are ignored (e.g. intro). Main enables this when the run starts.
 var controls_enabled: bool = false
 
@@ -28,7 +32,20 @@ var controls_enabled: bool = false
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("player")
+	_ship_half_width_world = _compute_ship_half_width()
 	health_changed.emit(current_health, max_health)
+
+
+func _compute_ship_half_width() -> float:
+	var hw := 16.0
+	var cs := $CollisionShape2D as CollisionShape2D
+	if cs != null and cs.shape is RectangleShape2D:
+		hw = maxf(hw, cs.shape.size.x * 0.5 * abs(cs.scale.x))
+	var spr := $ShipSprite as Sprite2D
+	if spr != null and spr.texture != null:
+		var sw: float = float(spr.texture.get_width()) * abs(spr.scale.x) * 0.5
+		hw = maxf(hw, sw)
+	return hw
 
 
 func take_damage(amount: int) -> void:
@@ -67,12 +84,9 @@ func _handle_input() -> void:
 
 
 func _update_position() -> void:
-	# Clamp x movement to movement_bounds
-	global_position.x = clampf(
-		global_position.x,
-		movement_bounds.x,
-		movement_bounds.y
-	)
+	var lo := playfield_x_min + _ship_half_width_world
+	var hi := playfield_x_max - _ship_half_width_world
+	global_position.x = clampf(global_position.x, lo, hi)
 
 
 func _try_fire() -> void:

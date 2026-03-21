@@ -131,6 +131,8 @@ func start_game() -> void:
 	if is_instance_valid(_score_hud):
 		_score_hud.visible = true
 	if is_instance_valid(_spawn_manager):
+		if _spawn_manager.has_method("reset_for_run"):
+			_spawn_manager.reset_for_run()
 		_spawn_manager.process_mode = Node.PROCESS_MODE_INHERIT
 	if not is_instance_valid(_player_ship):
 		return

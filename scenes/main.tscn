@@ -114,6 +114,8 @@ scale = Vector2(1.0, 1.0)
 
 [node name="PlayerShip" parent="GameRoot/Player" unique_id=108775495 instance=ExtResource("2_0wfyh")]
 position = Vector2(300, 700)
+playfield_x_min = 0.0
+playfield_x_max = 800.0
 laser_scene = ExtResource("3_sugp2")
 
 [node name="Asteroids" type="Node2D" parent="GameRoot" unique_id=1582301211]
