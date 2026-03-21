@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://ce10nx3t1y6"]
+
+[ext_resource type="Script" path="res://scripts/laser.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/art/laser.png" id="2"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_laser"]
+size = Vector2(6, 32)
+
+[node name="Laser" type="Area2D"]
+collision_layer = 2
+collision_mask = 4
+monitoring = true
+monitorable = true
+script = ExtResource("1")
+
+[node name="LaserSprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")
+scale = Vector2(0.012, 0.028)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_laser")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
+rect = Rect2(-3, -16, 6, 32)
+
+[connection signal="area_entered" from="." to="." method="_on_area_entered"]
+[connection signal="screen_exited" from="VisibleOnScreenNotifier2D" to="." method="_on_visible_on_screen_notifier_2d_screen_exited"]

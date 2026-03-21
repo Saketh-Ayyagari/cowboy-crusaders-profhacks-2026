@@ -1,0 +1,23 @@
+# Godot 4+ — editor cache and imports (regenerated locally)
+.godot/
+
+# Export build artifacts and temp files
+export/
+*.tmp
+
+# Optional: uncomment if you keep secrets in export presets
+# export_presets.cfg
+
+# macOS
+.DS_Store
+
+# Python (existing repo artifact)
+__pycache__/
+*.py[cod]
+.Python
+venv/
+.env
+
+# Pose runtime logs (local debugging)
+pose/pose_runtime_stderr.log
+pose/pose_runtime_boot.log
