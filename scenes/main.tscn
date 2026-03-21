@@ -6,6 +6,10 @@
 [ext_resource type="Script" path="res://scripts/spawn_manager.gd" id="4_spawnmgr"]
 [ext_resource type="PackedScene" path="res://scenes/asteroid.tscn" id="5_asteroid"]
 [ext_resource type="Texture2D" path="res://assets/art/space.png" id="6_space"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_full.png" id="7_heart_full"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_2_3.png" id="8_heart_2_3"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_1_3.png" id="9_heart_1_3"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_empty.png" id="10_heart_empty"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
 
@@ -88,6 +92,43 @@ custom_minimum_size = Vector2(600, 900)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
 mouse_filter = 2
+
+[node name="HeartsUI" type="HBoxContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel"]
+layout_mode = 1
+anchors_preset = 2
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -140.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 50.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 6
+alignment = 2
+
+[node name="Heart1" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart2" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart3" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="CameraPanel" type="Panel" parent="UILayer/HUD/RootLayout/MainSplit" unique_id=573232474]
 layout_mode = 2

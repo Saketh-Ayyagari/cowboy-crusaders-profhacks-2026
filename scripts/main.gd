@@ -3,6 +3,11 @@ extends Node2D
 ## Subtle downward scroll speed for the starfield (pixels per second).
 const BG_SCROLL_SPEED: float = 38.0
 
+const _HEART_FULL := preload("res://assets/art/heart_full.png")
+const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
+const _HEART_1_3 := preload("res://assets/art/heart_1_3.png")
+const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
+
 ## If >= 0, use this CameraServer index (Inspector override). -1 = auto-pick OBS Virtual Camera when present.
 @export var force_camera_feed_index: int = -1
 
@@ -19,6 +24,11 @@ const _WEBCAM_FORMAT_PRIORITY: PackedStringArray = [
 @onready var _bg1: Sprite2D = $GameRoot/World/Background
 @onready var _bg2: Sprite2D = $GameRoot/World/Background2
 
+@onready var _heart1: TextureRect = $UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI/Heart1
+@onready var _heart2: TextureRect = $UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI/Heart2
+@onready var _heart3: TextureRect = $UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI/Heart3
+@onready var _player_ship: Node = $GameRoot/Player/PlayerShip
+
 var _logged_no_feed_yet: bool = false
 var _webcam_setup_in_progress: bool = false
 var _bg_tile_height: float = 0.0
@@ -29,7 +39,50 @@ var _bg_base_y: float = 450.0
 
 func _ready() -> void:
 	_setup_background_parallax()
+	_setup_hearts_ui()
 	_start_debug_webcam_if_available()
+
+
+func _setup_hearts_ui() -> void:
+	if _heart1 == null or _heart2 == null or _heart3 == null:
+		return
+	if _player_ship == null or not is_instance_valid(_player_ship):
+		return
+	if not _player_ship.has_signal("health_changed"):
+		return
+	if not _player_ship.health_changed.is_connected(_on_player_health_changed):
+		_player_ship.health_changed.connect(_on_player_health_changed)
+	_on_player_health_changed(_player_ship.current_health, _player_ship.max_health)
+
+
+func _on_player_health_changed(current: int, maximum: int) -> void:
+	_refresh_hearts_display(current, maximum)
+
+
+func _refresh_hearts_display(current_health: int, max_health: int) -> void:
+	if not is_instance_valid(_heart1) or not is_instance_valid(_heart2) or not is_instance_valid(_heart3):
+		return
+	var hp := clampi(current_health, 0, max_health)
+	var mx := maxi(1, max_health)
+	# Map any max_health onto 0–3 heart steps, then same art as max 3.
+	var steps := 3
+	var filled := int(round((float(hp) / float(mx)) * float(steps)))
+	filled = clampi(filled, 0, steps)
+	match filled:
+		3:
+			_apply_heart_row(_HEART_FULL, _HEART_FULL, _HEART_FULL)
+		2:
+			_apply_heart_row(_HEART_FULL, _HEART_FULL, _HEART_2_3)
+		1:
+			_apply_heart_row(_HEART_FULL, _HEART_1_3, _HEART_EMPTY)
+		_:
+			_apply_heart_row(_HEART_EMPTY, _HEART_EMPTY, _HEART_EMPTY)
+
+
+func _apply_heart_row(t1: Texture2D, t2: Texture2D, t3: Texture2D) -> void:
+	_heart1.texture = t1
+	_heart2.texture = t2
+	_heart3.texture = t3
 
 
 func _setup_background_parallax() -> void:

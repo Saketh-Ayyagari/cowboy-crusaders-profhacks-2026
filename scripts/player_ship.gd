@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+signal health_changed(current: int, maximum: int)
+
 ## Horizontal movement speed in pixels per second.
 @export var horizontal_speed: float = 400.0
 
@@ -23,6 +25,7 @@ var _fire_cooldown_remaining: float = 0.0
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("player")
+	health_changed.emit(current_health, max_health)
 
 
 func take_damage(amount: int) -> void:
@@ -30,6 +33,7 @@ func take_damage(amount: int) -> void:
 		return
 	current_health = maxi(0, current_health - amount)
 	print("PlayerShip: damage %d — health now %d / %d" % [amount, current_health, max_health])
+	health_changed.emit(current_health, max_health)
 
 
 func _physics_process(delta: float) -> void:
