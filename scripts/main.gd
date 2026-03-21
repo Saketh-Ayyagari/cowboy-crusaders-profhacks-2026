@@ -14,6 +14,24 @@ const BG_SCROLL_SPEED: float = 38.0
 ## Bonus when a laser destroys an orange (fast) asteroid.
 @export var score_orange_destroy: int = 65
 
+const _SFX_LASER_SHOOT: Array[AudioStream] = [
+	preload("res://assets/audio/sfx_laser_shoot1.wav"),
+	preload("res://assets/audio/sfx_laser_shoot2.wav"),
+	preload("res://assets/audio/sfx_laser_shoot3.wav"),
+]
+
+const _SFX_ASTEROID_DESTROY: Array[AudioStream] = [
+	preload("res://assets/audio/sfx_asteroid_destroy1.wav"),
+	preload("res://assets/audio/sfx_asteroid_destroy2.wav"),
+	preload("res://assets/audio/sfx_asteroid_destroy3.wav"),
+]
+
+const _SFX_PLAYER_HIT: AudioStream = preload("res://assets/audio/sfx_player_hit.wav")
+const _SFX_GAME_OVER_CRASH: AudioStream = preload("res://assets/audio/sfx_game_over_crash.wav")
+const _SFX_UI_START: AudioStream = preload("res://assets/audio/sfx_ui_start.wav")
+const _BGM_GAMEPLAY: AudioStream = preload("res://assets/audio/bgm_gameplay_loop.wav")
+const _SFX_ENGINE_LOOP: AudioStream = preload("res://assets/audio/sfx_ship_engine_loop.wav")
+
 const _HEART_FULL := preload("res://assets/art/heart_full.png")
 const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
 const _HEART_1_3 := preload("res://assets/art/heart_1_3.png")
@@ -57,6 +75,13 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 @onready var _score_hud: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/ScoreHud
 @onready var _game_over_score_label: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/ScoreLabel
 
+@onready var _bgm_player: AudioStreamPlayer = $BGMPlayer
+@onready var _engine_player: AudioStreamPlayer = $EnginePlayer
+@onready var _ui_player: AudioStreamPlayer = $UIPlayer
+@onready var _sfx_player: AudioStreamPlayer = $SFXPlayer
+@onready var _hit_player: AudioStreamPlayer = $HitPlayer
+@onready var _crash_player: AudioStreamPlayer = $CrashPlayer
+
 var score: int = 0
 ## Bumped in start_game(); asteroids only award if their meta matches (avoids stray points on reload).
 var score_session_id: int = 0
@@ -79,7 +104,83 @@ func _ready() -> void:
 	_setup_hearts_ui()
 	_setup_game_over_ui()
 	_setup_intro()
+	_setup_audio()
 	_start_debug_webcam_if_available()
+
+func _setup_audio() -> void:
+	# Assign streams in code (minimal and beginner-friendly).
+	if is_instance_valid(_bgm_player):
+		_bgm_player.stream = _BGM_GAMEPLAY
+		_bgm_player.volume_db = -14.0
+		_bgm_player.autoplay = false
+		if not _bgm_player.finished.is_connected(_on_bgm_finished):
+			_bgm_player.finished.connect(_on_bgm_finished)
+
+	if is_instance_valid(_engine_player):
+		_engine_player.stream = _SFX_ENGINE_LOOP
+		_engine_player.volume_db = -8.0
+		_engine_player.autoplay = false
+		if not _engine_player.finished.is_connected(_on_engine_finished):
+			_engine_player.finished.connect(_on_engine_finished)
+
+	if is_instance_valid(_ui_player):
+		_ui_player.stream = _SFX_UI_START
+		_ui_player.volume_db = -6.0
+		_ui_player.autoplay = false
+
+	if is_instance_valid(_sfx_player):
+		_sfx_player.stream = _SFX_LASER_SHOOT[0]
+		_sfx_player.volume_db = -3.0
+		_sfx_player.autoplay = false
+
+	if is_instance_valid(_hit_player):
+		_hit_player.stream = _SFX_PLAYER_HIT
+		_hit_player.volume_db = -3.0
+		_hit_player.autoplay = false
+
+	if is_instance_valid(_crash_player):
+		_crash_player.stream = _SFX_GAME_OVER_CRASH
+		_crash_player.volume_db = -3.0
+		_crash_player.autoplay = false
+
+
+func _on_bgm_finished() -> void:
+	# We fake looping by restarting when the track ends.
+	if _run_started and not _is_game_over and is_instance_valid(_bgm_player):
+		_bgm_player.play()
+
+
+func _on_engine_finished() -> void:
+	if _run_started and not _is_game_over and is_instance_valid(_engine_player):
+		_engine_player.play()
+
+
+func _play_random_from_list(list: Array[AudioStream], player: AudioStreamPlayer) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	if list.is_empty():
+		return
+	var pick := list[randi() % list.size()]
+	player.stream = pick
+	player.play()
+
+
+func play_laser_shoot_sfx() -> void:
+	_play_random_from_list(_SFX_LASER_SHOOT, _sfx_player)
+
+
+func play_asteroid_destroy_sfx() -> void:
+	_play_random_from_list(_SFX_ASTEROID_DESTROY, _sfx_player)
+
+
+func play_player_hit_sfx() -> void:
+	if is_instance_valid(_hit_player):
+		_hit_player.play()
+
+
+func play_game_over_crash_sfx() -> void:
+	if is_instance_valid(_crash_player):
+		_crash_player.play()
 
 
 func _setup_hearts_ui() -> void:
@@ -134,6 +235,13 @@ func start_game() -> void:
 		if _spawn_manager.has_method("reset_for_run"):
 			_spawn_manager.reset_for_run()
 		_spawn_manager.process_mode = Node.PROCESS_MODE_INHERIT
+	# Audio starts when gameplay begins.
+	if is_instance_valid(_ui_player):
+		_ui_player.play()
+	if is_instance_valid(_bgm_player):
+		_bgm_player.play()
+	if is_instance_valid(_engine_player):
+		_engine_player.play()
 	if not is_instance_valid(_player_ship):
 		return
 	_player_ship.visible = true
@@ -160,6 +268,7 @@ func on_asteroid_destroyed(fast_orange: bool, asteroid_session_id: int) -> void:
 	var bonus := score_orange_destroy if fast_orange else score_normal_destroy
 	score += bonus
 	_refresh_score_hud()
+	play_asteroid_destroy_sfx()
 
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
@@ -170,6 +279,12 @@ func _on_player_health_changed(current: int, maximum: int) -> void:
 
 func _trigger_game_over() -> void:
 	_is_game_over = true
+	# Stop gameplay loops and play a crash once.
+	if is_instance_valid(_bgm_player):
+		_bgm_player.stop()
+	if is_instance_valid(_engine_player):
+		_engine_player.stop()
+	play_game_over_crash_sfx()
 	if is_instance_valid(_game_over_score_label):
 		_game_over_score_label.text = "Score: %d" % score
 	if is_instance_valid(_game_over_ui):

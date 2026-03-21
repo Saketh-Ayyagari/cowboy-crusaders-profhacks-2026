@@ -28,6 +28,8 @@ var _ship_half_width_world: float = 16.0
 ## When false, movement and shooting are ignored (e.g. intro). Main enables this when the run starts.
 var controls_enabled: bool = false
 
+@onready var _main: Node = get_node_or_null("/root/Main")
+
 
 func _ready() -> void:
 	current_health = max_health
@@ -51,6 +53,8 @@ func _compute_ship_half_width() -> float:
 func take_damage(amount: int) -> void:
 	if amount <= 0:
 		return
+	if _main != null and _main.has_method("play_player_hit_sfx"):
+		_main.play_player_hit_sfx()
 	current_health = maxi(0, current_health - amount)
 	print("PlayerShip: damage %d — health now %d / %d" % [amount, current_health, max_health])
 	health_changed.emit(current_health, max_health)
@@ -106,6 +110,8 @@ func _try_fire() -> void:
 		lasers_parent.add_child(spawned)
 		spawned.global_position = global_position + Vector2(0, -28)
 		_fire_cooldown_remaining = fire_cooldown
+		if _main != null and _main.has_method("play_laser_shoot_sfx"):
+			_main.play_laser_shoot_sfx()
 	elif spawned is Node:
 		spawned.queue_free()
 
