@@ -8,8 +8,8 @@ size = Vector2(40, 40)
 
 [node name="Asteroid" type="Area2D"]
 collision_layer = 4
-collision_mask = 0
-monitoring = false
+collision_mask = 1
+monitoring = true
 monitorable = true
 script = ExtResource("1")
 
@@ -23,4 +23,5 @@ shape = SubResource("RectangleShape2D_placeholder")
 [node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
 rect = Rect2(-20, -20, 40, 40)
 
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]
 [connection signal="screen_exited" from="VisibleOnScreenNotifier2D" to="." method="_on_visible_on_screen_notifier_2d_screen_exited"]

@@ -13,7 +13,23 @@ extends CharacterBody2D
 ## Seconds to wait after each shot before another shot is allowed.
 @export var fire_cooldown: float = 0.25
 
+## Maximum hit points before game-over logic (not wired yet).
+@export var max_health: int = 3
+
+var current_health: int = 0
 var _fire_cooldown_remaining: float = 0.0
+
+
+func _ready() -> void:
+	current_health = max_health
+	add_to_group("player")
+
+
+func take_damage(amount: int) -> void:
+	if amount <= 0:
+		return
+	current_health = maxi(0, current_health - amount)
+	print("PlayerShip: damage %d — health now %d / %d" % [amount, current_health, max_health])
 
 
 func _physics_process(delta: float) -> void:
