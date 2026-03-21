@@ -4,6 +4,10 @@ extends Area2D
 @export var fall_speed: float = 250.0
 
 
+func _ready() -> void:
+	add_to_group("asteroids")
+
+
 func _process(delta: float) -> void:
 	position.y += fall_speed * delta
 
