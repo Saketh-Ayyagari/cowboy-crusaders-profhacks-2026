@@ -8,13 +8,21 @@ const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
 const _HEART_1_3 := preload("res://assets/art/heart_1_3.png")
 const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 
-## If >= 0, use this CameraServer index (Inspector override). -1 = auto-pick OBS Virtual Camera when present.
+## If >= 0, use this CameraServer index (Inspector override). -1 = auto: skip virtual cams, prefer built-in (e.g. FaceTime HD).
 @export var force_camera_feed_index: int = -1
 
 ## Prefer capture formats that usually decode to clean full-color in Godot (order matters).
 const _WEBCAM_FORMAT_PRIORITY: PackedStringArray = [
 	"MJPEG", "JPEG", "RGB", "BGR", "BGRA", "ARGB", "RGBA",
 	"yuvs", "420v", "420f", "YUY2", "NV12", "UYVY",
+]
+
+const _WEBCAM_VIRTUAL_NAME_HINTS: PackedStringArray = [
+	"OBS", "VIRTUAL CAMERA", "CAMO", "ECAMM", "MMHMM", "SNAP",
+]
+
+const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
+	"FACETIME", "BUILT-IN", "ISIGHT", "MACBOOK", "INTEGRATED",
 ]
 
 ## Right-panel debug webcam (TextureRect under CameraPlaceholder).
@@ -162,6 +170,13 @@ func _datatype_to_string(dt: int) -> String:
 			return "unknown(%d)" % dt
 
 
+func _webcam_name_matches_any_hint(name_upper: String, hints: PackedStringArray) -> bool:
+	for hint in hints:
+		if hint in name_upper:
+			return true
+	return false
+
+
 func _resolve_webcam_feed_index() -> int:
 	var count := CameraServer.get_feed_count()
 	if count <= 0:
@@ -176,18 +191,30 @@ func _resolve_webcam_feed_index() -> int:
 			"Webcam debug: force_camera_feed_index=%d out of range (count=%d); falling back to auto."
 			% [force_camera_feed_index, count]
 		)
-	# Prefer OBS Virtual Camera (correct colors on Mac vs built-in camera Godot bug).
+	var first_non_virtual := -1
 	for i in range(count):
 		var f := CameraServer.get_feed(i)
 		if f == null:
 			continue
 		var name_u := f.get_name().to_upper()
-		if "OBS" in name_u or "VIRTUAL CAMERA" in name_u:
-			print("Webcam debug: Using OBS / virtual camera — index %d, '%s'" % [i, f.get_name()])
+		if _webcam_name_matches_any_hint(name_u, _WEBCAM_VIRTUAL_NAME_HINTS):
+			continue
+		if first_non_virtual < 0:
+			first_non_virtual = i
+		if _webcam_name_matches_any_hint(name_u, _WEBCAM_BUILTIN_NAME_HINTS):
+			print("Webcam debug: Using built-in camera — index %d, '%s'" % [i, f.get_name()])
 			return i
-	var fallback := CameraServer.get_feed(0)
-	var fb_name := fallback.get_name() if fallback else "?"
-	print("Webcam debug: No OBS Virtual Camera in feed list; using index 0 ('%s')." % fb_name)
+	if first_non_virtual >= 0:
+		var pick := CameraServer.get_feed(first_non_virtual)
+		var pick_name := pick.get_name() if pick else "?"
+		print(
+			"Webcam debug: Using first non-virtual camera — index %d, '%s'"
+			% [first_non_virtual, pick_name]
+		)
+		return first_non_virtual
+	push_warning("Webcam debug: All camera feeds look virtual; falling back to index 0.")
+	var fb := CameraServer.get_feed(0)
+	print("Webcam debug: Fallback index 0 — '%s'" % (fb.get_name() if fb else "?"))
 	return 0
 
 
