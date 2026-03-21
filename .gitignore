@@ -17,3 +17,7 @@ __pycache__/
 .Python
 venv/
 .env
+
+# Pose runtime logs (local debugging)
+pose/pose_runtime_stderr.log
+pose/pose_runtime_boot.log

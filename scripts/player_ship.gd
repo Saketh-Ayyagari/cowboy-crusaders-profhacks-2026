@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
 signal health_changed(current: int, maximum: int)
+signal lean_direction_changed(direction: int)
 
 ## Horizontal movement speed in pixels per second.
 @export var horizontal_speed: float = 400.0
@@ -18,6 +19,9 @@ signal health_changed(current: int, maximum: int)
 
 ## Maximum hit points before game-over logic (not wired yet).
 @export var max_health: int = 3
+@export var external_max_speed: float = 560.0
+@export var external_base_accel: float = 820.0
+@export var external_recenter_accel: float = 2600.0
 
 var current_health: int = 0
 var _fire_cooldown_remaining: float = 0.0
@@ -27,14 +31,22 @@ var _ship_half_width_world: float = 16.0
 
 ## When false, movement and shooting are ignored (e.g. intro). Main enables this when the run starts.
 var controls_enabled: bool = false
+var use_external_input: bool = false
+var external_lean_x: float = 0.0
+var _external_velocity_x: float = 0.0
+var _fire_request_once: bool = false
+var _last_lean_direction: int = 0
 
 @onready var _main: Node = get_node_or_null("/root/Main")
+@onready var _hat_brown: Node2D = $Hats/BrownHat
+@onready var _hat_pink: Node2D = $Hats/PinkHat
 
 
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("player")
 	_ship_half_width_world = _compute_ship_half_width()
+	_apply_hat_state(0)
 	health_changed.emit(current_health, max_health)
 
 
@@ -76,14 +88,24 @@ func _reduce_fire_cooldown(delta: float) -> void:
 
 
 func _handle_input() -> void:
-	velocity.x = 0.0
-
-	# Temporary keyboard fallback input
-	if Input.is_action_pressed("ui_left"):
-		velocity.x = -horizontal_speed
-	elif Input.is_action_pressed("ui_right"):
-		velocity.x = horizontal_speed
-
+	if use_external_input:
+		var lean := clampf(external_lean_x, -1.0, 1.0)
+		var dir := signf(lean)
+		var mag := pow(absf(lean), 1.85)
+		var target_speed := dir * external_max_speed * mag
+		var accel := external_recenter_accel if absf(lean) < 0.06 else external_base_accel * (1.0 + absf(lean) * 1.25)
+		_external_velocity_x = move_toward(_external_velocity_x, target_speed, accel * get_physics_process_delta_time())
+		velocity.x = _external_velocity_x
+		_update_hat_state_from_lean(lean)
+	else:
+		velocity.x = 0.0
+		_external_velocity_x = move_toward(_external_velocity_x, 0.0, external_recenter_accel * get_physics_process_delta_time())
+		_update_hat_state_from_lean(0.0)
+		# Temporary keyboard fallback input
+		if Input.is_action_pressed("ui_left"):
+			velocity.x = -horizontal_speed
+		elif Input.is_action_pressed("ui_right"):
+			velocity.x = horizontal_speed
 	move_and_slide()
 
 
@@ -96,9 +118,11 @@ func _update_position() -> void:
 func _try_fire() -> void:
 	if laser_scene == null:
 		return
-	if _fire_cooldown_remaining > 0.0:
+	var requested := _fire_request_once or Input.is_action_pressed("ui_accept")
+	_fire_request_once = false
+	if not requested:
 		return
-	if not Input.is_action_pressed("ui_accept"):
+	if _fire_cooldown_remaining > 0.0:
 		return
 
 	var lasers_parent := _get_lasers_container()
@@ -118,3 +142,32 @@ func _try_fire() -> void:
 
 func _get_lasers_container() -> Node:
 	return get_node_or_null("/root/Main/GameRoot/Lasers")
+
+
+func set_external_lean(lean: float) -> void:
+	external_lean_x = clampf(lean, -1.0, 1.0)
+
+
+func request_fire_once() -> void:
+	_fire_request_once = true
+
+
+func _update_hat_state_from_lean(lean: float) -> void:
+	var dir := 0
+	if lean > 0.08:
+		dir = 1
+	elif lean < -0.08:
+		dir = -1
+	if dir == _last_lean_direction:
+		return
+	_last_lean_direction = dir
+	_apply_hat_state(dir)
+	lean_direction_changed.emit(dir)
+
+
+func _apply_hat_state(direction: int) -> void:
+	if not is_instance_valid(_hat_brown) or not is_instance_valid(_hat_pink):
+		return
+	# Center = brown. Any lean (left/right) = pink.
+	_hat_brown.visible = direction == 0
+	_hat_pink.visible = direction != 0

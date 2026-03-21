@@ -37,26 +37,10 @@ const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
 const _HEART_1_3 := preload("res://assets/art/heart_1_3.png")
 const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 
-## If >= 0, use this CameraServer index (Inspector override). -1 = auto: skip virtual cams, prefer built-in (e.g. FaceTime HD).
-@export var force_camera_feed_index: int = -1
-
-## Prefer capture formats that usually decode to clean full-color in Godot (order matters).
-const _WEBCAM_FORMAT_PRIORITY: PackedStringArray = [
-	"MJPEG", "JPEG", "RGB", "BGR", "BGRA", "ARGB", "RGBA",
-	"yuvs", "420v", "420f", "YUY2", "NV12", "UYVY",
-]
-
-const _WEBCAM_VIRTUAL_NAME_HINTS: PackedStringArray = [
-	"OBS", "VIRTUAL CAMERA", "CAMO", "ECAMM", "MMHMM", "SNAP",
-]
-
-const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
-	"FACETIME", "BUILT-IN", "ISIGHT", "MACBOOK", "INTEGRATED",
-]
-
-## Right-panel debug webcam (TextureRect under CameraPlaceholder).
+## Right-panel camera placeholder (kept for layout; MediaPipe integration will attach later).
 @onready var _camera_feed: TextureRect = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraFeed
 @onready var _camera_placeholder: Control = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder
+@onready var _camera_hit_flash_overlay: ColorRect = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HitFlashOverlay
 @onready var _camera_placeholder_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraPlaceholderLabel
 
 @onready var _bg1: Sprite2D = $GameRoot/World/Background
@@ -72,6 +56,7 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 @onready var _play_again_button: Button = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/PlayAgainButton
 @onready var _game_root: Node2D = $GameRoot
 @onready var _spawn_manager: Node = $Managers/SpawnManager
+@onready var _pose_bridge: PoseInputBridge = $Managers/PoseInputBridge
 @onready var _intro_ui: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI
 @onready var _score_hud: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/ScoreHud
 @onready var _game_over_score_label: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/ScoreLabel
@@ -92,22 +77,25 @@ var _is_game_over: bool = false
 var _intro_ship_rest_pos: Vector2 = Vector2.ZERO
 var _intro_ship_tween: Tween
 var _passive_score_carry: float = 0.0
-var _logged_no_feed_yet: bool = false
-var _webcam_setup_in_progress: bool = false
 var _bg_tile_height: float = 0.0
 var _bg_scroll: float = 0.0
 var _bg_base_x: float = 400.0
 var _bg_base_y: float = 450.0
 
 ## Hit feedback shake. (Game side = move GameRoot; Webcam side = move CameraPlaceholder.)
-const _HIT_SHAKE_DURATION: float = 0.28
-const _HIT_SHAKE_GAME_PIXELS: float = 18.0
-const _HIT_SHAKE_WEBCAM_PIXELS: float = 14.0
+const _HIT_SHAKE_DURATION: float = 0.34
+const _HIT_SHAKE_GAME_PIXELS: float = 24.0
+const _HIT_SHAKE_WEBCAM_PIXELS: float = 18.0
+const _HIT_FLASH_MAX_ALPHA: float = 0.6
+const _HIT_FLASH_FADE_IN_DURATION: float = 0.08
+const _HIT_FLASH_FADE_OUT_DURATION: float = 0.18
 var _game_root_base_pos: Vector2 = Vector2.ZERO
 var _camera_placeholder_base_pos: Vector2 = Vector2.ZERO
 var _last_player_health: int = -1
 var _hit_shake_game_tween: Tween
 var _hit_shake_webcam_tween: Tween
+var _camera_hit_flash_tween: Tween
+var _pose_anchor_offset_x: float = 0.0
 
 
 func _ready() -> void:
@@ -116,9 +104,16 @@ func _ready() -> void:
 	_setup_game_over_ui()
 	_setup_intro()
 	_setup_audio()
-	_start_debug_webcam_if_available()
+	_setup_camera_panel_placeholder()
+	_setup_pose_bridge()
 	_game_root_base_pos = _game_root.position
 	_camera_placeholder_base_pos = _camera_placeholder.position
+
+
+func _setup_pose_bridge() -> void:
+	if not is_instance_valid(_pose_bridge):
+		return
+	_pose_bridge.poll_pose()
 
 func _setup_audio() -> void:
 	# Assign streams in code (minimal and beginner-friendly).
@@ -230,6 +225,7 @@ func _setup_intro() -> void:
 	if not is_instance_valid(_player_ship):
 		return
 	_intro_ship_rest_pos = _player_ship.position
+	_pose_anchor_offset_x = 0.0
 
 
 ## Call when the player is ready to play (Space / ui_accept now; jump later).
@@ -238,6 +234,9 @@ func start_game() -> void:
 		return
 	_run_started = true
 	score_session_id += 1
+	if is_instance_valid(_pose_bridge) and _pose_bridge.has_fresh_tracking():
+		# Treat current posture as the gameplay reference anchor.
+		_pose_anchor_offset_x = _pose_bridge.lean_x
 	if _intro_ship_tween != null and is_instance_valid(_intro_ship_tween):
 		_intro_ship_tween.kill()
 	if is_instance_valid(_intro_ui):
@@ -289,6 +288,7 @@ func _on_player_health_changed(current: int, maximum: int) -> void:
 	# Only shake on damage (health decreased), not on initial setup.
 	if _last_player_health >= 0 and current < _last_player_health:
 		_trigger_hit_shake()
+		_trigger_camera_hit_flash()
 	_last_player_health = current
 	if current <= 0 and not _is_game_over:
 		_trigger_game_over()
@@ -309,7 +309,7 @@ func _trigger_hit_shake() -> void:
 		_hit_shake_webcam_tween.kill()
 	_hit_shake_webcam_tween = null
 
-	var steps := 10
+	var steps := 12
 	var step_duration := _HIT_SHAKE_DURATION / float(steps)
 
 	# Game-side shake (video half).
@@ -317,8 +317,8 @@ func _trigger_hit_shake() -> void:
 	game_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_hit_shake_game_tween = game_tween
 	for i in range(steps):
-		var t := float(i) / float(steps)
-		var amt := _HIT_SHAKE_GAME_PIXELS * (1.0 - t)
+		var decay := float(i) / float(steps)
+		var amt := _HIT_SHAKE_GAME_PIXELS * (1.0 - decay)
 		var off := Vector2(randf_range(-amt, amt), randf_range(-amt, amt))
 		game_tween.tween_property(_game_root, "position", _game_root_base_pos + off, step_duration)
 	game_tween.tween_property(_game_root, "position", _game_root_base_pos, 0.01)
@@ -328,8 +328,8 @@ func _trigger_hit_shake() -> void:
 	webcam_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_hit_shake_webcam_tween = webcam_tween
 	for i in range(steps):
-		var t := float(i) / float(steps)
-		var amt := _HIT_SHAKE_WEBCAM_PIXELS * (1.0 - t)
+		var decay := float(i) / float(steps)
+		var amt := _HIT_SHAKE_WEBCAM_PIXELS * (1.0 - decay)
 		var off := Vector2(randf_range(-amt, amt), randf_range(-amt, amt))
 		webcam_tween.tween_property(_camera_placeholder, "position", _camera_placeholder_base_pos + off, step_duration)
 	webcam_tween.tween_property(_camera_placeholder, "position", _camera_placeholder_base_pos, 0.01)
@@ -371,9 +371,9 @@ func _trigger_game_over() -> void:
 	if is_instance_valid(_game_panel):
 		_game_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	if is_instance_valid(_game_root):
-		_game_root.process_mode = Node.PROCESS_MODE_DISABLED
+		_game_root.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	if is_instance_valid(_spawn_manager):
-		_spawn_manager.process_mode = Node.PROCESS_MODE_DISABLED
+		_spawn_manager.set_deferred("process_mode", Node.PROCESS_MODE_DISABLED)
 	if is_instance_valid(_play_again_button):
 		_play_again_button.grab_focus()
 
@@ -435,8 +435,55 @@ func _process(delta: float) -> void:
 	if _is_game_over:
 		return
 	_scroll_backgrounds(delta)
+	_update_pose_controls()
 	if _run_started:
 		_tick_passive_score(delta)
+
+
+func _update_pose_controls() -> void:
+	if not is_instance_valid(_pose_bridge):
+		return
+	_pose_bridge.poll_pose()
+	var cam_tex := _pose_bridge.get_camera_preview_texture()
+	if _camera_feed != null and cam_tex != null:
+		_camera_feed.texture = cam_tex
+	if not is_instance_valid(_player_ship):
+		return
+
+	var has_pose := _pose_bridge.has_fresh_tracking()
+	_player_ship.use_external_input = has_pose
+	if has_pose:
+		var lean_adjusted := clampf(_pose_bridge.lean_x - _pose_anchor_offset_x, -1.0, 1.0)
+		_player_ship.set_external_lean(lean_adjusted)
+	else:
+		_player_ship.set_external_lean(0.0)
+
+	if _pose_bridge.consume_jump_trigger():
+		if not _run_started:
+			start_game()
+		elif _run_started and not _is_game_over and _player_ship.controls_enabled:
+			_player_ship.request_fire_once()
+
+	if is_instance_valid(_camera_placeholder_label):
+		var status := "TRACKING" if has_pose else "NO TRACKING"
+		var live_lean := 0.0 if not has_pose else clampf(_pose_bridge.lean_x - _pose_anchor_offset_x, -1.0, 1.0)
+		var packet_age_ms := _pose_bridge.get_packet_age_ms()
+		var age_text := "n/a" if packet_age_ms < 0 else ("%dms" % packet_age_ms)
+		var runtime_text := "ON" if _pose_bridge.is_runtime_launched() else "OFF"
+		var py_hint := _pose_bridge.get_python_used()
+		if py_hint.length() > 28:
+			py_hint = "…" + py_hint.substr(py_hint.length() - 26, 26)
+		var hint := _pose_bridge.get_debug_hint()
+		var line1 := "POSE %s | lean %.2f | conf %.2f | age %s" % [status, live_lean, _pose_bridge.tracking_confidence, age_text]
+		var line2 := "runtime %s | json_ok %d | udp_rx %d | py %s" % [
+			runtime_text,
+			_pose_bridge.get_packet_count(),
+			_pose_bridge.get_raw_datagram_count(),
+			py_hint,
+		]
+		if hint != "":
+			line2 += "\n%s" % hint
+		_camera_placeholder_label.text = line1 + "\n" + line2
 
 
 func _tick_passive_score(delta: float) -> void:
@@ -480,251 +527,55 @@ func _scroll_backgrounds(delta: float) -> void:
 	_apply_background_positions()
 
 
-func _start_debug_webcam_if_available() -> void:
-	if _camera_feed == null:
-		print("Webcam debug: CameraFeed node not found.")
-		return
-
-	# Fill the webcam panel more aggressively so shakes feel "full frame".
-	_camera_feed.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_camera_feed.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_camera_feed.modulate = Color.WHITE
-	_camera_feed.self_modulate = Color.WHITE
-	_camera_feed.material = null
-	_camera_feed.use_parent_material = false
-
-	if not CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
-		CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated)
-
-	CameraServer.monitoring_feeds = true
-	print("Webcam debug: Monitoring enabled; looking for a camera…")
-
-	call_deferred("_try_assign_first_camera_feed")
-
-
-func _on_camera_feeds_updated() -> void:
-	_try_assign_first_camera_feed()
-
-
-func _datatype_to_string(dt: int) -> String:
-	match dt:
-		CameraFeed.FEED_NOIMAGE:
-			return "FEED_NOIMAGE"
-		CameraFeed.FEED_RGB:
-			return "FEED_RGB"
-		CameraFeed.FEED_YCBCR:
-			return "FEED_YCBCR"
-		CameraFeed.FEED_YCBCR_SEP:
-			return "FEED_YCBCR_SEP"
-		CameraFeed.FEED_EXTERNAL:
-			return "FEED_EXTERNAL"
-		_:
-			return "unknown(%d)" % dt
-
-
-func _webcam_name_matches_any_hint(name_upper: String, hints: PackedStringArray) -> bool:
-	for hint in hints:
-		if hint in name_upper:
-			return true
-	return false
-
-
-func _resolve_webcam_feed_index() -> int:
-	var count := CameraServer.get_feed_count()
-	if count <= 0:
-		return 0
-	if force_camera_feed_index >= 0:
-		if force_camera_feed_index < count:
-			var forced := CameraServer.get_feed(force_camera_feed_index)
-			var forced_name := forced.get_name() if forced else "?"
-			print("Webcam debug: Using force_camera_feed_index = %d ('%s')" % [force_camera_feed_index, forced_name])
-			return force_camera_feed_index
-		push_warning(
-			"Webcam debug: force_camera_feed_index=%d out of range (count=%d); falling back to auto."
-			% [force_camera_feed_index, count]
-		)
-	var first_non_virtual := -1
-	for i in range(count):
-		var f := CameraServer.get_feed(i)
-		if f == null:
-			continue
-		var name_u := f.get_name().to_upper()
-		if _webcam_name_matches_any_hint(name_u, _WEBCAM_VIRTUAL_NAME_HINTS):
-			continue
-		if first_non_virtual < 0:
-			first_non_virtual = i
-		if _webcam_name_matches_any_hint(name_u, _WEBCAM_BUILTIN_NAME_HINTS):
-			print("Webcam debug: Using built-in camera — index %d, '%s'" % [i, f.get_name()])
-			return i
-	if first_non_virtual >= 0:
-		var pick := CameraServer.get_feed(first_non_virtual)
-		var pick_name := pick.get_name() if pick else "?"
-		print(
-			"Webcam debug: Using first non-virtual camera — index %d, '%s'"
-			% [first_non_virtual, pick_name]
-		)
-		return first_non_virtual
-	push_warning("Webcam debug: All camera feeds look virtual; falling back to index 0.")
-	var fb := CameraServer.get_feed(0)
-	print("Webcam debug: Fallback index 0 — '%s'" % (fb.get_name() if fb else "?"))
-	return 0
-
-
-func _pick_preferred_format_index(formats: Array) -> int:
-	if formats.is_empty():
-		return 0
-	for key in _WEBCAM_FORMAT_PRIORITY:
-		var ku := key.to_upper()
-		for i in range(formats.size()):
-			var entry: Variant = formats[i]
-			var haystack := str(entry).to_upper()
-			if ku in haystack:
-				return i
-	return 0
-
-
-func _ordered_format_indices(n: int, preferred: int) -> Array[int]:
-	var out: Array[int] = []
-	var used: Dictionary = {}
-	if preferred >= 0 and preferred < n:
-		out.append(preferred)
-		used[preferred] = true
-	for i in range(n):
-		if not used.has(i):
-			out.append(i)
-	return out
-
-
-func _await_feed_datatype(feed: CameraFeed) -> int:
-	# macOS / some drivers update get_datatype() a frame or two after set_format.
-	await get_tree().process_frame
-	await get_tree().process_frame
-	return feed.get_datatype()
-
-
-func _try_set_format_and_probe(feed: CameraFeed, index: int, params: Dictionary) -> int:
-	feed.feed_is_active = false
-	var ok: bool = feed.set_format(index, params)
-	if not ok:
-		print("Webcam debug: set_format(%d, %s) returned false" % [index, params])
-	feed.feed_is_active = true
-	await get_tree().process_frame
-	var dt: int = await _await_feed_datatype(feed)
-	print(
-		"Webcam debug: probe format index=%d params=%s -> datatype=%s"
-		% [index, params, _datatype_to_string(dt)]
-	)
-	return dt
-
-
-func _configure_camera_feed_for_display(feed: CameraFeed) -> String:
-	var formats: Array = feed.get_formats()
-	var n: int = formats.size()
-	print("Webcam debug: %d format(s) reported for this device." % n)
-	for i in range(n):
-		print("Webcam debug:   format[%d] = %s" % [i, formats[i]])
-
-	if n == 0:
-		print("Webcam debug: No format list — using engine default (no set_format).")
-		return "no_formats_default"
-
-	var preferred: int = _pick_preferred_format_index(formats)
-	var order: Array[int] = _ordered_format_indices(n, preferred)
-
-	# Pass 1: normal set_format — look for true RGB pipeline (best for correct color).
-	for idx in order:
-		var dt := await _try_set_format_and_probe(feed, idx, {})
-		if dt == CameraFeed.FEED_RGB:
-			print("Webcam debug: COLOR PATH = native_rgb (format index %d)" % idx)
-			return "native_rgb"
-
-	# Pass 2: Godot docs — "grayscale" output forces a decoded FEED_RGB path (fixes YUV shown as wrong RGB / red cast).
-	print("Webcam debug: No native FEED_RGB found; trying grayscale decode pass…")
-	for idx in order:
-		var dt2 := await _try_set_format_and_probe(feed, idx, {"output": "grayscale"})
-		if dt2 == CameraFeed.FEED_RGB:
-			print(
-				"Webcam debug: COLOR PATH = grayscale_decode (format index %d) — grayscale image, but no false color tint."
-				% idx
-			)
-			return "grayscale_decode"
-
-	# Last resort: preferred index, default params
-	print("Webcam debug: COLOR PATH = fallback_preferred_empty — tint may be driver/YUV related.")
-	feed.feed_is_active = false
-	feed.set_format(preferred, {})
-	feed.feed_is_active = true
-	await get_tree().process_frame
-	return "fallback_preferred_empty"
-
-
-func _finish_webcam_texture_bind(feed: CameraFeed, color_path: String) -> void:
-	var cam_tex := CameraTexture.new()
-	cam_tex.camera_feed_id = feed.get_id()
-	cam_tex.which_feed = CameraServer.FEED_RGBA_IMAGE
-	cam_tex.camera_is_active = true
-
-	_camera_feed.material = null
-	_camera_feed.modulate = Color.WHITE
-	_camera_feed.self_modulate = Color.WHITE
-	_camera_feed.texture = cam_tex
-
+func _setup_camera_panel_placeholder() -> void:
+	# Webcam preview comes from pose runtime JPEG over UDP; keep layout and hit flash overlay.
+	if _camera_feed != null:
+		_camera_feed.texture = null
+		_camera_feed.material = null
+		_camera_feed.visible = true
+	if is_instance_valid(_camera_hit_flash_overlay):
+		_camera_hit_flash_overlay.visible = true
+		_camera_hit_flash_overlay.color = Color(1.0, 0.12, 0.12, 0.0)
 	if is_instance_valid(_camera_placeholder_label):
-		_camera_placeholder_label.visible = false
+		_camera_placeholder_label.visible = true
+		# Bottom strip so it does not cover the whole preview.
+		_camera_placeholder_label.anchor_left = 0.0
+		_camera_placeholder_label.anchor_top = 1.0
+		_camera_placeholder_label.anchor_right = 1.0
+		_camera_placeholder_label.anchor_bottom = 1.0
+		_camera_placeholder_label.offset_left = 8.0
+		_camera_placeholder_label.offset_top = -76.0
+		_camera_placeholder_label.offset_right = -8.0
+		_camera_placeholder_label.offset_bottom = -6.0
+		_camera_placeholder_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_camera_placeholder_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_camera_placeholder_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_camera_placeholder_label.add_theme_font_size_override("font_size", 16)
+		_camera_placeholder_label.text = "CAMERA: waiting for preview…"
 
-	var dt: int = feed.get_datatype()
-	print("Webcam debug: feed_is_active = %s" % feed.feed_is_active)
-	print("Webcam debug: cam_tex.camera_is_active = %s" % cam_tex.camera_is_active)
-	print(
-		"Webcam debug: Assigned %s (camera_feed_id=%d, which_feed=FEED_RGBA_IMAGE/0)"
-		% [cam_tex, cam_tex.camera_feed_id]
+
+func _trigger_camera_hit_flash() -> void:
+	if not is_instance_valid(_camera_hit_flash_overlay):
+		return
+
+	if _camera_hit_flash_tween != null:
+		_camera_hit_flash_tween.kill()
+		_camera_hit_flash_tween = null
+
+	var flash_color := _camera_hit_flash_overlay.color
+	flash_color.a = 0.0
+	_camera_hit_flash_overlay.color = flash_color
+
+	var peak_color := flash_color
+	peak_color.a = _HIT_FLASH_MAX_ALPHA
+
+	_camera_hit_flash_tween = create_tween()
+	_camera_hit_flash_tween.set_trans(Tween.TRANS_SINE)
+	_camera_hit_flash_tween.set_ease(Tween.EASE_OUT)
+	_camera_hit_flash_tween.tween_property(
+		_camera_hit_flash_overlay, "color", peak_color, _HIT_FLASH_FADE_IN_DURATION
 	)
-	print("Webcam debug: final get_datatype() = %s" % _datatype_to_string(dt))
-	print("Webcam debug: color_path = %s" % color_path)
-
-	if color_path == "grayscale_decode":
-		print(
-			"Webcam debug: NOTE — Using grayscale decode so YUV is not mis-read as RGB (removes red cast; no chroma)."
-		)
-	elif color_path == "fallback_preferred_empty" or dt != CameraFeed.FEED_RGB:
-		print(
-			"Webcam debug: NOTE — If the feed is still tinted, the OS is likely handing Godot a YUV layout this build mishandles; try another camera app or a Godot engine update."
-		)
-
-
-func _run_webcam_setup_async(feed: CameraFeed) -> void:
-	var path := await _configure_camera_feed_for_display(feed)
-	_finish_webcam_texture_bind(feed, path)
-	_webcam_setup_in_progress = false
-
-
-func _try_assign_first_camera_feed() -> void:
-	if _camera_feed == null:
-		return
-	if _camera_feed.texture != null:
-		return
-	if _webcam_setup_in_progress:
-		return
-
-	var count := CameraServer.get_feed_count()
-	print("Webcam debug: CameraServer.get_feed_count() = %d" % count)
-
-	if count == 0:
-		if not _logged_no_feed_yet:
-			print("Webcam debug: No camera feed found (not supported or permission denied).")
-			_logged_no_feed_yet = true
-		return
-
-	var feed_index := _resolve_webcam_feed_index()
-	var feed := CameraServer.get_feed(feed_index)
-	if feed == null:
-		print("Webcam debug: get_feed(%d) returned null." % feed_index)
-		return
-
-	print(
-		"Webcam debug: Using feed index %d — name '%s', id=%d"
-		% [feed_index, feed.get_name(), feed.get_id()]
+	_camera_hit_flash_tween.set_ease(Tween.EASE_IN)
+	_camera_hit_flash_tween.tween_property(
+		_camera_hit_flash_overlay, "color", flash_color, _HIT_FLASH_FADE_OUT_DURATION
 	)
-
-	_webcam_setup_in_progress = true
-	_run_webcam_setup_async(feed)

@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" path="res://assets/art/heart_empty.png" id="10_heart_empty"]
 [ext_resource type="Texture2D" path="res://assets/art/game_over.png" id="11_game_over"]
 [ext_resource type="Texture2D" path="res://assets/art/mainMenu.png" id="12_main_menu"]
+[ext_resource type="Script" path="res://scripts/pose_input_bridge.gd" id="13_posebridge"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
 
@@ -432,6 +433,16 @@ expand_mode = 1
 stretch_mode = 5
 mouse_filter = 2
 
+[node name="HitFlashOverlay" type="ColorRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0.12, 0.12, 0)
+
 [node name="CameraPlaceholderLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
 layout_mode = 1
 anchors_preset = 15
@@ -451,6 +462,9 @@ vertical_alignment = 1
 [node name="InputManager" type="Node" parent="Managers" unique_id=1373004369]
 
 [node name="GameManager" type="Node" parent="Managers" unique_id=692918556]
+
+[node name="PoseInputBridge" type="Node" parent="Managers" unique_id=190909001]
+script = ExtResource("13_posebridge")
 
 [node name="SpawnManager" type="Node" parent="Managers" unique_id=372093159]
 script = ExtResource("4_spawnmgr")

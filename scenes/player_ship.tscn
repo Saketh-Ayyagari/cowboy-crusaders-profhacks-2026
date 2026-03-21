@@ -6,6 +6,12 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_placeholder"]
 size = Vector2(32, 24)
 
+[sub_resource type="ConvexPolygonShape2D" id="ConvexPolygonShape2D_hat_brim"]
+points = PackedVector2Array(-14, 0, 14, 0, 10, 4, -10, 4)
+
+[sub_resource type="ConvexPolygonShape2D" id="ConvexPolygonShape2D_hat_crown"]
+points = PackedVector2Array(-8, -8, 8, -8, 6, 0, -6, 0)
+
 [node name="PlayerShip" type="CharacterBody2D"]
 collision_layer = 1
 collision_mask = 0
@@ -17,3 +23,27 @@ scale = Vector2(0.072, 0.072)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_placeholder")
+
+[node name="Hats" type="Node2D" parent="."]
+position = Vector2(0, -22)
+
+[node name="BrownHat" type="Node2D" parent="Hats"]
+
+[node name="Brim" type="Polygon2D" parent="Hats/BrownHat"]
+color = Color(0.43, 0.25, 0.12, 1)
+polygon = PackedVector2Array(-14, 0, 14, 0, 10, 4, -10, 4)
+
+[node name="Crown" type="Polygon2D" parent="Hats/BrownHat"]
+color = Color(0.56, 0.33, 0.17, 1)
+polygon = PackedVector2Array(-8, -8, 8, -8, 6, 0, -6, 0)
+
+[node name="PinkHat" type="Node2D" parent="Hats"]
+visible = false
+
+[node name="Brim" type="Polygon2D" parent="Hats/PinkHat"]
+color = Color(0.95, 0.27, 0.73, 1)
+polygon = PackedVector2Array(-14, 0, 14, 0, 10, 4, -10, 4)
+
+[node name="Crown" type="Polygon2D" parent="Hats/PinkHat"]
+color = Color(1, 0.54, 0.86, 1)
+polygon = PackedVector2Array(-8, -8, 8, -8, 6, 0, -6, 0)
