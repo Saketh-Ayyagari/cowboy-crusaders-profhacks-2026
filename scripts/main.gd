@@ -45,6 +45,7 @@ const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 @onready var _camera_placeholder_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraPlaceholderLabel
 @onready var _camera_debug_toggle: CheckButton = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDebugToggle/DebugToggleButton
 @onready var _hat_instruction_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatInstructionLabel
+@onready var _webcam_death_quip_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/WebcamDeathQuip
 @onready var _webcam_hat: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay
 @onready var _webcam_hat_brown: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/BrownHat
 @onready var _webcam_hat_pink: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/PinkHat
@@ -112,6 +113,13 @@ const _HAT_UI_SCALE: float = 1.22
 const _HAT_COLOR_SELECT_DEADZONE: float = 0.2
 const _HAT_PROMPT_TEXT: String = "Move your head LEFT for pink cowboy hat\nMove your head RIGHT for brown cowboy hat"
 const _CONTROLS_PROMPT_TEXT: String = "Controls: move LEFT and RIGHT.\nPress Enter and steering-wheel Back to shoot."
+const _WEBCAM_DEATH_QUIPS: PackedStringArray = [
+	"look at this guy",
+	"get a load of this guy",
+	"I guess you didn't yeehaw",
+	"space cowboy status: revoked",
+	"that asteroid had your number",
+]
 const _POSE_CALIBRATION_CENTER_WINDOW: float = 0.12
 const _POSE_CALIBRATION_LERP_SPEED: float = 3.2
 const _POSE_INPUT_DEADZONE: float = 0.06
@@ -237,6 +245,9 @@ func _setup_intro() -> void:
 	_passive_score_carry = 0.0
 	_hat_color_locked = false
 	_hat_use_pink = false
+	if is_instance_valid(_webcam_death_quip_label):
+		_webcam_death_quip_label.visible = false
+		_webcam_death_quip_label.text = ""
 	if is_instance_valid(_hat_instruction_label):
 		_hat_instruction_label.visible = true
 		_hat_instruction_label.text = _HAT_PROMPT_TEXT
@@ -263,6 +274,9 @@ func start_game() -> void:
 	if _run_started or _is_game_over:
 		return
 	_hat_color_locked = true
+	if is_instance_valid(_webcam_death_quip_label):
+		_webcam_death_quip_label.visible = false
+		_webcam_death_quip_label.text = ""
 	if is_instance_valid(_hat_instruction_label):
 		_hat_instruction_label.visible = true
 		_hat_instruction_label.text = _CONTROLS_PROMPT_TEXT
@@ -390,6 +404,9 @@ func _restore_hit_shake_state() -> void:
 
 func _trigger_game_over() -> void:
 	_is_game_over = true
+	if is_instance_valid(_webcam_death_quip_label) and not _WEBCAM_DEATH_QUIPS.is_empty():
+		_webcam_death_quip_label.text = _WEBCAM_DEATH_QUIPS[randi() % _WEBCAM_DEATH_QUIPS.size()]
+		_webcam_death_quip_label.visible = true
 	# Allow any hit shake to play out, then restore baseline so the overlay isn't offset.
 	if _hit_shake_game_tween != null or _hit_shake_webcam_tween != null:
 		var restore_timer := get_tree().create_timer(_HIT_SHAKE_DURATION + 0.05)

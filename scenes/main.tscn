@@ -470,6 +470,24 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
 
+[node name="WebcamDeathQuip" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel"]
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 44.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 20
+text = "LOOK AT THIS GUY"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="CameraPlaceholder" type="ColorRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel"]
 layout_mode = 1
 anchors_preset = 15
