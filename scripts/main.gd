@@ -3,6 +3,9 @@ extends Node2D
 ## Subtle downward scroll speed for the starfield (pixels per second).
 const BG_SCROLL_SPEED: float = 38.0
 
+## If >= 0, use this CameraServer index (Inspector override). -1 = auto-pick OBS Virtual Camera when present.
+@export var force_camera_feed_index: int = -1
+
 ## Prefer capture formats that usually decode to clean full-color in Godot (order matters).
 const _WEBCAM_FORMAT_PRIORITY: PackedStringArray = [
 	"MJPEG", "JPEG", "RGB", "BGR", "BGRA", "ARGB", "RGBA",
@@ -104,6 +107,35 @@ func _datatype_to_string(dt: int) -> String:
 			return "FEED_EXTERNAL"
 		_:
 			return "unknown(%d)" % dt
+
+
+func _resolve_webcam_feed_index() -> int:
+	var count := CameraServer.get_feed_count()
+	if count <= 0:
+		return 0
+	if force_camera_feed_index >= 0:
+		if force_camera_feed_index < count:
+			var forced := CameraServer.get_feed(force_camera_feed_index)
+			var forced_name := forced.get_name() if forced else "?"
+			print("Webcam debug: Using force_camera_feed_index = %d ('%s')" % [force_camera_feed_index, forced_name])
+			return force_camera_feed_index
+		push_warning(
+			"Webcam debug: force_camera_feed_index=%d out of range (count=%d); falling back to auto."
+			% [force_camera_feed_index, count]
+		)
+	# Prefer OBS Virtual Camera (correct colors on Mac vs built-in camera Godot bug).
+	for i in range(count):
+		var f := CameraServer.get_feed(i)
+		if f == null:
+			continue
+		var name_u := f.get_name().to_upper()
+		if "OBS" in name_u or "VIRTUAL CAMERA" in name_u:
+			print("Webcam debug: Using OBS / virtual camera — index %d, '%s'" % [i, f.get_name()])
+			return i
+	var fallback := CameraServer.get_feed(0)
+	var fb_name := fallback.get_name() if fallback else "?"
+	print("Webcam debug: No OBS Virtual Camera in feed list; using index 0 ('%s')." % fb_name)
+	return 0
 
 
 func _pick_preferred_format_index(formats: Array) -> int:
@@ -251,7 +283,7 @@ func _try_assign_first_camera_feed() -> void:
 			_logged_no_feed_yet = true
 		return
 
-	var feed_index := 0
+	var feed_index := _resolve_webcam_feed_index()
 	var feed := CameraServer.get_feed(feed_index)
 	if feed == null:
 		print("Webcam debug: get_feed(%d) returned null." % feed_index)
