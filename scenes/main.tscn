@@ -11,6 +11,7 @@
 [ext_resource type="Texture2D" path="res://assets/art/heart_1_3.png" id="9_heart_1_3"]
 [ext_resource type="Texture2D" path="res://assets/art/heart_empty.png" id="10_heart_empty"]
 [ext_resource type="Texture2D" path="res://assets/art/game_over.png" id="11_game_over"]
+[ext_resource type="Texture2D" path="res://assets/art/mainMenu.png" id="12_main_menu"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
 
