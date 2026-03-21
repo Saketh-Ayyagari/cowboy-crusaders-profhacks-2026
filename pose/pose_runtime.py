@@ -76,10 +76,11 @@ class RuntimeConfig:
     preview_udp_port: int = int(os.getenv("POSE_PREVIEW_UDP_PORT", "42425"))
     # Send a preview JPEG every N processed frames (1 = every frame, smoothest).
     preview_every_n_frames: int = max(1, int(os.getenv("POSE_PREVIEW_EVERY_N", "1")))
-    preview_max_width: int = max(80, int(os.getenv("POSE_PREVIEW_MAX_W", "280")))
+    preview_max_width: int = max(80, int(os.getenv("POSE_PREVIEW_MAX_W", "480")))
     # Fixed JPEG dimensions so Godot TextureRect does not reflow every frame (reduces glitching).
-    preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "320")))
-    preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "180")))
+    preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "480")))
+    preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "270")))
+    preview_jpeg_quality: int = max(35, min(95, int(os.getenv("POSE_PREVIEW_JPEG_QUALITY", "72"))))
 
 
 def open_cv_camera(preferred_index: int) -> tuple[cv.VideoCapture, int]:
@@ -227,7 +228,7 @@ class PoseRuntime:
                 mid = src
             interp = cv.INTER_AREA if mid.shape[1] > tw or mid.shape[0] > th else cv.INTER_LINEAR
             small = cv.resize(mid, (tw, th), interpolation=interp)
-            ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), 48])
+            ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), self.cfg.preview_jpeg_quality])
             if not ok or buf is None:
                 return
             payload = buf.tobytes()

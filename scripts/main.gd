@@ -10,9 +10,9 @@ const BG_SCROLL_SPEED: float = 38.0
 ## Score: passive points per second while the run is active (not game over).
 @export var score_passive_per_second: float = 12.0
 ## Bonus when a laser destroys a normal asteroid.
-@export var score_normal_destroy: int = 25
+@export var score_normal_destroy: int = 90
 ## Bonus when a laser destroys an orange (fast) asteroid.
-@export var score_orange_destroy: int = 65
+@export var score_orange_destroy: int = 220
 
 const _SFX_LASER_SHOOT: Array[AudioStream] = [
 	preload("res://assets/audio/sfx_laser_shoot1.wav"),
@@ -45,7 +45,7 @@ const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 @onready var _camera_placeholder_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraPlaceholderLabel
 @onready var _camera_debug_toggle: CheckButton = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDebugToggle/DebugToggleButton
 @onready var _hat_instruction_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatInstructionLabel
-@onready var _webcam_death_quip_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/WebcamDeathQuip
+@onready var _webcam_death_quip_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDeathQuip
 @onready var _webcam_hat: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay
 @onready var _webcam_hat_brown: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/BrownHat
 @onready var _webcam_hat_pink: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/PinkHat
@@ -109,7 +109,7 @@ var _hit_shake_webcam_tween: Tween
 var _camera_hit_flash_tween: Tween
 var _pose_anchor_offset_x: float = 0.0
 const _HAT_HEAD_OFFSET_Y_PX: float = 8.0
-const _HAT_UI_SCALE: float = 1.22
+const _HAT_UI_SCALE: float = 1.28
 const _HAT_COLOR_SELECT_DEADZONE: float = 0.2
 const _HAT_PROMPT_TEXT: String = "Move your head LEFT for pink cowboy hat\nMove your head RIGHT for brown cowboy hat"
 const _CONTROLS_PROMPT_TEXT: String = "Controls: move LEFT and RIGHT.\nPress Enter and steering-wheel Back to shoot."
@@ -404,6 +404,8 @@ func _restore_hit_shake_state() -> void:
 
 func _trigger_game_over() -> void:
 	_is_game_over = true
+	if is_instance_valid(_hat_instruction_label):
+		_hat_instruction_label.visible = false
 	if is_instance_valid(_webcam_death_quip_label) and not _WEBCAM_DEATH_QUIPS.is_empty():
 		_webcam_death_quip_label.text = _WEBCAM_DEATH_QUIPS[randi() % _WEBCAM_DEATH_QUIPS.size()]
 		_webcam_death_quip_label.visible = true
