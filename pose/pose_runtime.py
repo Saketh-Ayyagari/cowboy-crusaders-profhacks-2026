@@ -76,10 +76,13 @@ class RuntimeConfig:
     preview_udp_port: int = int(os.getenv("POSE_PREVIEW_UDP_PORT", "42425"))
     # Send a preview JPEG every N processed frames (1 = every frame, smoothest).
     preview_every_n_frames: int = max(1, int(os.getenv("POSE_PREVIEW_EVERY_N", "1")))
-    preview_max_width: int = max(80, int(os.getenv("POSE_PREVIEW_MAX_W", "280")))
+    preview_max_width: int = max(80, int(os.getenv("POSE_PREVIEW_MAX_W", "1280")))
     # Fixed JPEG dimensions so Godot TextureRect does not reflow every frame (reduces glitching).
-    preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "320")))
-    preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "180")))
+    preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "1280")))
+    preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "720")))
+    # Requested webcam capture resolution (actual delivered size depends on camera/driver support).
+    camera_out_w: int = max(64, int(os.getenv("POSE_CAMERA_OUT_W", "1280")))
+    camera_out_h: int = max(48, int(os.getenv("POSE_CAMERA_OUT_H", "720")))
 
 
 def open_cv_camera(preferred_index: int) -> tuple[cv.VideoCapture, int]:
@@ -140,6 +143,7 @@ class PoseRuntime:
             self.preview_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.camera, self._camera_index_used = open_cv_camera(self.cfg.camera_index)
+        self._apply_capture_resolution()
         self.detector = self._build_detector(self.cfg.model_path)
         self.face_mesh = self._build_face_mesh() if self.detector is None else None
 
@@ -180,6 +184,15 @@ class PoseRuntime:
                 self.cfg.fps_target,
             )
         )
+
+    def _apply_capture_resolution(self) -> None:
+        if self.camera is None or not self.camera.isOpened():
+            return
+        try:
+            self.camera.set(cv.CAP_PROP_FRAME_WIDTH, float(self.cfg.camera_out_w))
+            self.camera.set(cv.CAP_PROP_FRAME_HEIGHT, float(self.cfg.camera_out_h))
+        except Exception as exc:
+            self._log(f"capture resolution request failed: {exc}")
 
     def _build_detector(self, model_path: str):
         if not os.path.exists(model_path):
