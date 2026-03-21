@@ -56,6 +56,7 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 
 ## Right-panel debug webcam (TextureRect under CameraPlaceholder).
 @onready var _camera_feed: TextureRect = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraFeed
+@onready var _camera_placeholder: Control = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder
 @onready var _camera_placeholder_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraPlaceholderLabel
 
 @onready var _bg1: Sprite2D = $GameRoot/World/Background
@@ -98,6 +99,16 @@ var _bg_scroll: float = 0.0
 var _bg_base_x: float = 400.0
 var _bg_base_y: float = 450.0
 
+## Hit feedback shake. (Game side = move GameRoot; Webcam side = move CameraPlaceholder.)
+const _HIT_SHAKE_DURATION: float = 0.22
+const _HIT_SHAKE_GAME_PIXELS: float = 10.0
+const _HIT_SHAKE_WEBCAM_PIXELS: float = 7.0
+var _game_root_base_pos: Vector2 = Vector2.ZERO
+var _camera_placeholder_base_pos: Vector2 = Vector2.ZERO
+var _last_player_health: int = -1
+var _hit_shake_game_tween: Tween
+var _hit_shake_webcam_tween: Tween
+
 
 func _ready() -> void:
 	_setup_background_parallax()
@@ -106,6 +117,8 @@ func _ready() -> void:
 	_setup_intro()
 	_setup_audio()
 	_start_debug_webcam_if_available()
+	_game_root_base_pos = _game_root.position
+	_camera_placeholder_base_pos = _camera_placeholder.position
 
 func _setup_audio() -> void:
 	# Assign streams in code (minimal and beginner-friendly).
@@ -273,12 +286,77 @@ func on_asteroid_destroyed(fast_orange: bool, asteroid_session_id: int) -> void:
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
 	_refresh_hearts_display(current, maximum)
+	# Only shake on damage (health decreased), not on initial setup.
+	if _last_player_health >= 0 and current < _last_player_health:
+		_trigger_hit_shake()
+	_last_player_health = current
 	if current <= 0 and not _is_game_over:
 		_trigger_game_over()
 
 
+func _trigger_hit_shake() -> void:
+	if not is_instance_valid(_game_root) or not is_instance_valid(_camera_placeholder):
+		return
+
+	# Reset to the baseline before starting a new shake.
+	_game_root.position = _game_root_base_pos
+	_camera_placeholder.position = _camera_placeholder_base_pos
+
+	if _hit_shake_game_tween != null:
+		_hit_shake_game_tween.kill()
+	_hit_shake_game_tween = null
+	if _hit_shake_webcam_tween != null:
+		_hit_shake_webcam_tween.kill()
+	_hit_shake_webcam_tween = null
+
+	var steps := 6
+	var step_duration := _HIT_SHAKE_DURATION / float(steps)
+
+	# Game-side shake (video half).
+	var game_tween := create_tween()
+	game_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_hit_shake_game_tween = game_tween
+	for i in range(steps):
+		var t := float(i) / float(steps)
+		var amt := _HIT_SHAKE_GAME_PIXELS * (1.0 - t)
+		var off := Vector2(randf_range(-amt, amt), randf_range(-amt, amt))
+		game_tween.tween_property(_game_root, "position", _game_root_base_pos + off, step_duration)
+	game_tween.tween_property(_game_root, "position", _game_root_base_pos, 0.01)
+
+	# Webcam-side shake (webcam half).
+	var webcam_tween := create_tween()
+	webcam_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_hit_shake_webcam_tween = webcam_tween
+	for i in range(steps):
+		var t := float(i) / float(steps)
+		var amt := _HIT_SHAKE_WEBCAM_PIXELS * (1.0 - t)
+		var off := Vector2(randf_range(-amt, amt), randf_range(-amt, amt))
+		webcam_tween.tween_property(_camera_placeholder, "position", _camera_placeholder_base_pos + off, step_duration)
+	webcam_tween.tween_property(_camera_placeholder, "position", _camera_placeholder_base_pos, 0.01)
+
+
+func _restore_hit_shake_state() -> void:
+	# Called after a short delay when the player dies, so we don't cancel the hit feedback.
+	if _hit_shake_game_tween != null:
+		_hit_shake_game_tween.kill()
+		_hit_shake_game_tween = null
+	if _hit_shake_webcam_tween != null:
+		_hit_shake_webcam_tween.kill()
+		_hit_shake_webcam_tween = null
+	if is_instance_valid(_game_root):
+		_game_root.position = _game_root_base_pos
+	if is_instance_valid(_camera_placeholder):
+		_camera_placeholder.position = _camera_placeholder_base_pos
+
+
 func _trigger_game_over() -> void:
 	_is_game_over = true
+	# Allow any hit shake to play out, then restore baseline so the overlay isn't offset.
+	if _hit_shake_game_tween != null or _hit_shake_webcam_tween != null:
+		var restore_timer := get_tree().create_timer(_HIT_SHAKE_DURATION + 0.05)
+		restore_timer.timeout.connect(_restore_hit_shake_state)
+	else:
+		_restore_hit_shake_state()
 	# Stop gameplay loops and play a crash once.
 	if is_instance_valid(_bgm_player):
 		_bgm_player.stop()
