@@ -37,6 +37,13 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 @onready var _heart3: TextureRect = $UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI/Heart3
 @onready var _player_ship: Node = $GameRoot/Player/PlayerShip
 
+@onready var _game_panel: Panel = $UILayer/HUD/RootLayout/MainSplit/GamePanel
+@onready var _game_over_ui: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI
+@onready var _play_again_button: Button = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/PlayAgainButton
+@onready var _game_root: Node2D = $GameRoot
+@onready var _spawn_manager: Node = $Managers/SpawnManager
+
+var _is_game_over: bool = false
 var _logged_no_feed_yet: bool = false
 var _webcam_setup_in_progress: bool = false
 var _bg_tile_height: float = 0.0
@@ -48,6 +55,7 @@ var _bg_base_y: float = 450.0
 func _ready() -> void:
 	_setup_background_parallax()
 	_setup_hearts_ui()
+	_setup_game_over_ui()
 	_start_debug_webcam_if_available()
 
 
@@ -63,8 +71,34 @@ func _setup_hearts_ui() -> void:
 	_on_player_health_changed(_player_ship.current_health, _player_ship.max_health)
 
 
+func _setup_game_over_ui() -> void:
+	if is_instance_valid(_play_again_button) and not _play_again_button.pressed.is_connected(_on_play_again_pressed):
+		_play_again_button.pressed.connect(_on_play_again_pressed)
+
+
 func _on_player_health_changed(current: int, maximum: int) -> void:
 	_refresh_hearts_display(current, maximum)
+	if current <= 0 and not _is_game_over:
+		_trigger_game_over()
+
+
+func _trigger_game_over() -> void:
+	_is_game_over = true
+	if is_instance_valid(_game_over_ui):
+		_game_over_ui.visible = true
+	# GamePanel uses MOUSE_FILTER_IGNORE during play so clicks reach the ship; enable hits for the overlay.
+	if is_instance_valid(_game_panel):
+		_game_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	if is_instance_valid(_game_root):
+		_game_root.process_mode = Node.PROCESS_MODE_DISABLED
+	if is_instance_valid(_spawn_manager):
+		_spawn_manager.process_mode = Node.PROCESS_MODE_DISABLED
+	if is_instance_valid(_play_again_button):
+		_play_again_button.grab_focus()
+
+
+func _on_play_again_pressed() -> void:
+	get_tree().reload_current_scene()
 
 
 func _refresh_hearts_display(current_health: int, max_health: int) -> void:
@@ -117,7 +151,18 @@ func _apply_background_positions() -> void:
 
 
 func _process(delta: float) -> void:
+	if _is_game_over:
+		return
 	_scroll_backgrounds(delta)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _is_game_over:
+		return
+	if event.is_echo():
+		return
+	if event.is_action_pressed("ui_accept"):
+		_on_play_again_pressed()
 
 
 func _scroll_backgrounds(delta: float) -> void:
