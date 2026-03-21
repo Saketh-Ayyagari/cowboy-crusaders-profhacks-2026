@@ -21,3 +21,5 @@ venv/
 # Pose runtime logs (local debugging)
 pose/pose_runtime_stderr.log
 pose/pose_runtime_boot.log
+# Python virtualenv variant used by some setups
+.venv/
