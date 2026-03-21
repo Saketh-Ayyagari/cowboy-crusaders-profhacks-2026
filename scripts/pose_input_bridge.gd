@@ -21,6 +21,8 @@ var is_centered: bool = true
 var jump_triggered: bool = false
 var tracking_confidence: float = 0.0
 var head_anchor_x: float = 0.5
+var head_x: float = 0.5
+var head_y: float = 0.32
 
 var _udp: PacketPeerUDP
 var _runtime_pid: int = -1
@@ -180,7 +182,11 @@ func poll_preview() -> void:
 		var img := Image.new()
 		if img.load_jpg_from_buffer(jpeg_bytes) != OK:
 			continue
-		_preview_texture = ImageTexture.create_from_image(img)
+		# Reuse one ImageTexture + set_image() to avoid per-frame GPU object churn (fixes preview flicker/glitch).
+		if _preview_texture == null:
+			_preview_texture = ImageTexture.create_from_image(img)
+		else:
+			_preview_texture.set_image(img)
 
 
 func _parse_packet(text: String) -> void:
@@ -200,6 +206,12 @@ func _parse_packet(text: String) -> void:
 	var hax: Variant = packet.get("head_anchor_x", head_anchor_x)
 	if hax != null:
 		head_anchor_x = float(hax)
+	var hx: Variant = packet.get("head_x", null)
+	if hx != null:
+		head_x = float(hx)
+	var hy: Variant = packet.get("head_y", null)
+	if hy != null:
+		head_y = float(hy)
 	if bool(packet.get("jump_triggered", false)):
 		_jump_latch = true
 	jump_triggered = _jump_latch

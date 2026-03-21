@@ -41,7 +41,13 @@ const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 @onready var _camera_feed: TextureRect = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraFeed
 @onready var _camera_placeholder: Control = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder
 @onready var _camera_hit_flash_overlay: ColorRect = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HitFlashOverlay
+@onready var _camera_debug_guides_overlay: Control = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDebugGuidesOverlay
 @onready var _camera_placeholder_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/CameraPlaceholderLabel
+@onready var _camera_debug_toggle: CheckButton = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDebugToggle/DebugToggleButton
+@onready var _hat_instruction_label: Label = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatInstructionLabel
+@onready var _webcam_hat: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay
+@onready var _webcam_hat_brown: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/BrownHat
+@onready var _webcam_hat_pink: Node2D = $UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/PinkHat
 
 @onready var _bg1: Sprite2D = $GameRoot/World/Background
 @onready var _bg2: Sprite2D = $GameRoot/World/Background2
@@ -59,6 +65,9 @@ const _HEART_EMPTY := preload("res://assets/art/heart_empty.png")
 @onready var _pose_bridge: PoseInputBridge = $Managers/PoseInputBridge
 @onready var _intro_ui: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI
 @onready var _score_hud: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/ScoreHud
+@onready var _weapon_energy_hud: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/WeaponEnergyHud
+@onready var _weapon_energy_label: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/WeaponEnergyHud/WeaponEnergyLabel
+@onready var _weapon_energy_bar: ProgressBar = $UILayer/HUD/RootLayout/MainSplit/GamePanel/WeaponEnergyHud/WeaponEnergyBar
 @onready var _game_over_score_label: Label = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/ScoreLabel
 
 @onready var _bgm_player: AudioStreamPlayer = $BGMPlayer
@@ -89,6 +98,8 @@ const _HIT_SHAKE_WEBCAM_PIXELS: float = 18.0
 const _HIT_FLASH_MAX_ALPHA: float = 0.6
 const _HIT_FLASH_FADE_IN_DURATION: float = 0.08
 const _HIT_FLASH_FADE_OUT_DURATION: float = 0.18
+@export var show_webcam_debug_overlay: bool = false
+@export var mirror_webcam_preview: bool = true
 var _game_root_base_pos: Vector2 = Vector2.ZERO
 var _camera_placeholder_base_pos: Vector2 = Vector2.ZERO
 var _last_player_health: int = -1
@@ -96,6 +107,18 @@ var _hit_shake_game_tween: Tween
 var _hit_shake_webcam_tween: Tween
 var _camera_hit_flash_tween: Tween
 var _pose_anchor_offset_x: float = 0.0
+const _HAT_HEAD_OFFSET_Y_PX: float = 8.0
+const _HAT_UI_SCALE: float = 1.22
+const _HAT_COLOR_SELECT_DEADZONE: float = 0.2
+const _HAT_PROMPT_TEXT: String = "Move your head LEFT for pink cowboy hat\nMove your head RIGHT for brown cowboy hat"
+const _CONTROLS_PROMPT_TEXT: String = "Controls: move LEFT and RIGHT.\nPress Enter and steering-wheel Back to shoot."
+const _POSE_CALIBRATION_CENTER_WINDOW: float = 0.12
+const _POSE_CALIBRATION_LERP_SPEED: float = 3.2
+const _POSE_INPUT_DEADZONE: float = 0.06
+const _POSE_LEFT_GAIN: float = 1.0
+const _POSE_RIGHT_GAIN: float = 1.18
+var _hat_use_pink: bool = false
+var _hat_color_locked: bool = false
 
 
 func _ready() -> void:
@@ -212,6 +235,11 @@ func _setup_intro() -> void:
 	_run_started = false
 	score = 0
 	_passive_score_carry = 0.0
+	_hat_color_locked = false
+	_hat_use_pink = false
+	if is_instance_valid(_hat_instruction_label):
+		_hat_instruction_label.visible = true
+		_hat_instruction_label.text = _HAT_PROMPT_TEXT
 	if is_instance_valid(_spawn_manager):
 		_spawn_manager.process_mode = Node.PROCESS_MODE_DISABLED
 	if is_instance_valid(_player_ship):
@@ -222,6 +250,8 @@ func _setup_intro() -> void:
 	if is_instance_valid(_score_hud):
 		_score_hud.visible = false
 		_refresh_score_hud()
+	if is_instance_valid(_weapon_energy_hud):
+		_weapon_energy_hud.visible = false
 	if not is_instance_valid(_player_ship):
 		return
 	_intro_ship_rest_pos = _player_ship.position
@@ -232,6 +262,10 @@ func _setup_intro() -> void:
 func start_game() -> void:
 	if _run_started or _is_game_over:
 		return
+	_hat_color_locked = true
+	if is_instance_valid(_hat_instruction_label):
+		_hat_instruction_label.visible = true
+		_hat_instruction_label.text = _CONTROLS_PROMPT_TEXT
 	_run_started = true
 	score_session_id += 1
 	if is_instance_valid(_pose_bridge) and _pose_bridge.has_fresh_tracking():
@@ -243,6 +277,8 @@ func start_game() -> void:
 		_intro_ui.visible = false
 	if is_instance_valid(_score_hud):
 		_score_hud.visible = true
+	if is_instance_valid(_weapon_energy_hud):
+		_weapon_energy_hud.visible = true
 	if is_instance_valid(_spawn_manager):
 		if _spawn_manager.has_method("reset_for_run"):
 			_spawn_manager.reset_for_run()
@@ -256,6 +292,9 @@ func start_game() -> void:
 		_engine_player.play()
 	if not is_instance_valid(_player_ship):
 		return
+	if _player_ship.has_method("reset_weapon_energy"):
+		_player_ship.reset_weapon_energy()
+	_refresh_weapon_energy_hud()
 	_player_ship.visible = true
 	_player_ship.controls_enabled = false
 	_player_ship.position = Vector2(_intro_ship_rest_pos.x, intro_ship_start_y)
@@ -367,6 +406,8 @@ func _trigger_game_over() -> void:
 		_game_over_score_label.text = "Score: %d" % score
 	if is_instance_valid(_game_over_ui):
 		_game_over_ui.visible = true
+	if is_instance_valid(_weapon_energy_hud):
+		_weapon_energy_hud.visible = false
 	# GamePanel uses MOUSE_FILTER_IGNORE during play so clicks reach the ship; enable hits for the overlay.
 	if is_instance_valid(_game_panel):
 		_game_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -432,6 +473,8 @@ func _apply_background_positions() -> void:
 
 
 func _process(delta: float) -> void:
+	if _run_started and not _is_game_over:
+		_refresh_weapon_energy_hud()
 	if _is_game_over:
 		return
 	_scroll_backgrounds(delta)
@@ -445,7 +488,7 @@ func _update_pose_controls() -> void:
 		return
 	_pose_bridge.poll_pose()
 	var cam_tex := _pose_bridge.get_camera_preview_texture()
-	if _camera_feed != null and cam_tex != null:
+	if _camera_feed != null and cam_tex != null and _camera_feed.texture != cam_tex:
 		_camera_feed.texture = cam_tex
 	if not is_instance_valid(_player_ship):
 		return
@@ -453,10 +496,25 @@ func _update_pose_controls() -> void:
 	var has_pose := _pose_bridge.has_fresh_tracking()
 	_player_ship.use_external_input = has_pose
 	if has_pose:
-		var lean_adjusted := clampf(_pose_bridge.lean_x - _pose_anchor_offset_x, -1.0, 1.0)
+		var lean_raw := (_pose_bridge.lean_x - _pose_anchor_offset_x) * -1.0
+		var frame_dt := get_process_delta_time()
+		# Small adaptive re-centering improves feel when neutral posture drifts.
+		if absf(lean_raw) <= _POSE_CALIBRATION_CENTER_WINDOW:
+			_pose_anchor_offset_x = lerpf(
+				_pose_anchor_offset_x,
+				_pose_bridge.lean_x,
+				clampf(frame_dt * _POSE_CALIBRATION_LERP_SPEED, 0.0, 1.0)
+			)
+		var lean_adjusted := 0.0
+		if absf(lean_raw) > _POSE_INPUT_DEADZONE:
+			var magnitude := (absf(lean_raw) - _POSE_INPUT_DEADZONE) / (1.0 - _POSE_INPUT_DEADZONE)
+			var gain := _POSE_RIGHT_GAIN if lean_raw > 0.0 else _POSE_LEFT_GAIN
+			lean_adjusted = signf(lean_raw) * magnitude * gain
+		lean_adjusted = clampf(lean_adjusted, -1.0, 1.0)
 		_player_ship.set_external_lean(lean_adjusted)
 	else:
 		_player_ship.set_external_lean(0.0)
+	_update_webcam_hat(has_pose)
 
 	if _pose_bridge.consume_jump_trigger():
 		if not _run_started:
@@ -486,6 +544,36 @@ func _update_pose_controls() -> void:
 		_camera_placeholder_label.text = line1 + "\n" + line2
 
 
+func _update_webcam_hat(has_pose: bool) -> void:
+	if not is_instance_valid(_webcam_hat):
+		return
+	if not has_pose:
+		_webcam_hat.visible = false
+		return
+	var panel_size := _camera_placeholder.size
+	if panel_size.x <= 1.0 or panel_size.y <= 1.0:
+		_webcam_hat.visible = false
+		return
+	# Use live head position so the hat follows left/right movement in real time.
+	var head_x := clampf(_pose_bridge.head_x, 0.0, 1.0)
+	if mirror_webcam_preview:
+		head_x = 1.0 - head_x
+	var head_y := clampf(_pose_bridge.head_y, 0.0, 1.0)
+	_webcam_hat.visible = true
+	var hat_y := clampf(head_y * panel_size.y - _HAT_HEAD_OFFSET_Y_PX, 0.0, panel_size.y)
+	_webcam_hat.position = Vector2(head_x * panel_size.x, hat_y)
+	var lean_for_style := clampf(_pose_bridge.lean_x - _pose_anchor_offset_x, -1.0, 1.0)
+	if not _hat_color_locked:
+		if lean_for_style > _HAT_COLOR_SELECT_DEADZONE:
+			_hat_use_pink = true
+		elif lean_for_style < -_HAT_COLOR_SELECT_DEADZONE:
+			_hat_use_pink = false
+	if is_instance_valid(_webcam_hat_brown):
+		_webcam_hat_brown.visible = not _hat_use_pink
+	if is_instance_valid(_webcam_hat_pink):
+		_webcam_hat_pink.visible = _hat_use_pink
+
+
 func _tick_passive_score(delta: float) -> void:
 	_passive_score_carry += score_passive_per_second * delta
 	while _passive_score_carry >= 1.0:
@@ -499,11 +587,29 @@ func _refresh_score_hud() -> void:
 		_score_hud.text = "Score: %d" % score
 
 
+func _refresh_weapon_energy_hud() -> void:
+	if not is_instance_valid(_player_ship) or not is_instance_valid(_weapon_energy_bar):
+		return
+	if not _player_ship.has_method("get_weapon_energy_ratio"):
+		return
+	_weapon_energy_bar.value = _player_ship.get_weapon_energy_ratio()
+	var recharging: bool = _player_ship.is_weapon_recharging() if _player_ship.has_method("is_weapon_recharging") else false
+	var ch: int = _player_ship.get_weapon_charges_remaining() if _player_ship.has_method("get_weapon_charges_remaining") else 0
+	var mx: int = _player_ship.get_weapon_max_shots() if _player_ship.has_method("get_weapon_max_shots") else 3
+	if is_instance_valid(_weapon_energy_label):
+		if recharging:
+			_weapon_energy_label.text = "Blaster — recharging…"
+		else:
+			_weapon_energy_label.text = "Blaster — %d / %d" % [ch, mx]
+	# Warm tint while refilling (energy / heat read).
+	_weapon_energy_bar.modulate = Color(1.0, 0.82, 0.62, 1.0) if recharging else Color.WHITE
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo():
 		return
 	if _is_game_over:
-		if event.is_action_pressed("ui_accept"):
+		if _wants_start_input(event):
 			_on_play_again_pressed()
 		return
 	if not _run_started and _wants_start_input(event):
@@ -513,8 +619,12 @@ func _unhandled_input(event: InputEvent) -> void:
 func _wants_start_input(event: InputEvent) -> bool:
 	if event.is_action_pressed("ui_accept"):
 		return true
-	if event is InputEventKey and event.pressed and not event.echo:
-		return event.keycode == KEY_SPACE
+	if event is InputEventKey:
+		var key_ev := event as InputEventKey
+		if key_ev.pressed and not key_ev.echo:
+			var k: Key = key_ev.keycode
+			# Space + wireless numpad Enter / Back (Backspace), same as shoot keys.
+			return k == KEY_SPACE or k == KEY_KP_ENTER or k == KEY_BACKSPACE
 	return false
 
 
@@ -532,12 +642,20 @@ func _setup_camera_panel_placeholder() -> void:
 	if _camera_feed != null:
 		_camera_feed.texture = null
 		_camera_feed.material = null
+		_camera_feed.flip_h = mirror_webcam_preview
 		_camera_feed.visible = true
+	if is_instance_valid(_webcam_hat):
+		_webcam_hat.visible = false
+		_webcam_hat.position = Vector2(_camera_placeholder.size.x * 0.5, _camera_placeholder.size.y * 0.28)
+		_webcam_hat.scale = Vector2(_HAT_UI_SCALE, _HAT_UI_SCALE)
+	if is_instance_valid(_webcam_hat_brown):
+		_webcam_hat_brown.visible = true
+	if is_instance_valid(_webcam_hat_pink):
+		_webcam_hat_pink.visible = false
 	if is_instance_valid(_camera_hit_flash_overlay):
 		_camera_hit_flash_overlay.visible = true
 		_camera_hit_flash_overlay.color = Color(1.0, 0.12, 0.12, 0.0)
 	if is_instance_valid(_camera_placeholder_label):
-		_camera_placeholder_label.visible = true
 		# Bottom strip so it does not cover the whole preview.
 		_camera_placeholder_label.anchor_left = 0.0
 		_camera_placeholder_label.anchor_top = 1.0
@@ -552,6 +670,27 @@ func _setup_camera_panel_placeholder() -> void:
 		_camera_placeholder_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_camera_placeholder_label.add_theme_font_size_override("font_size", 16)
 		_camera_placeholder_label.text = "CAMERA: waiting for preview…"
+	_setup_webcam_debug_toggle()
+
+
+func _setup_webcam_debug_toggle() -> void:
+	_apply_webcam_debug_overlay(show_webcam_debug_overlay)
+	if is_instance_valid(_camera_debug_toggle):
+		_camera_debug_toggle.button_pressed = show_webcam_debug_overlay
+		if not _camera_debug_toggle.toggled.is_connected(_on_camera_debug_toggle_toggled):
+			_camera_debug_toggle.toggled.connect(_on_camera_debug_toggle_toggled)
+
+
+func _on_camera_debug_toggle_toggled(enabled: bool) -> void:
+	_apply_webcam_debug_overlay(enabled)
+
+
+func _apply_webcam_debug_overlay(enabled: bool) -> void:
+	show_webcam_debug_overlay = enabled
+	if is_instance_valid(_camera_debug_guides_overlay):
+		_camera_debug_guides_overlay.set("show_pose_calibration_guides", enabled)
+	if is_instance_valid(_camera_placeholder_label):
+		_camera_placeholder_label.visible = enabled
 
 
 func _trigger_camera_hit_flash() -> void:

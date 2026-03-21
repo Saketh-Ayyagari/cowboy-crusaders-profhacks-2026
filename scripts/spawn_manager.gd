@@ -6,16 +6,16 @@ extends Node
 ## Spawn timing: seconds between spawns at run start.
 @export var base_spawn_interval: float = 1.0
 ## Floor — never spawn faster than this (seconds between spawn ticks).
-@export var minimum_spawn_interval: float = 0.42
+@export var minimum_spawn_interval: float = 0.28
 ## How much the spawn interval shrinks per second of active play.
-@export var spawn_ramp_per_second: float = 0.008
+@export var spawn_ramp_per_second: float = 0.015
 
 ## Speed: starting global multiplier on fall speed (before orange variant).
 @export var base_speed_multiplier: float = 1.0
 ## Cap on global speed multiplier from time.
-@export var max_speed_multiplier: float = 1.45
+@export var max_speed_multiplier: float = 1.7
 ## How much the speed multiplier rises per second of active play.
-@export var speed_ramp_per_second: float = 0.0045
+@export var speed_ramp_per_second: float = 0.0085
 
 ## Extra multiplier for `asteroid2.png` (orange) — stacks on top of time scaling.
 @export var orange_speed_multiplier: float = 1.85
@@ -24,9 +24,9 @@ extends Node
 @export var base_asteroid_speed: float = 250.0
 
 ## Bursts: only after this many seconds of play can multi-spawns roll.
-@export var burst_unlock_time: float = 48.0
+@export var burst_unlock_time: float = 24.0
 ## Chance (0–1) each spawn tick to spawn a burst instead of a single rock.
-@export var burst_chance: float = 0.14
+@export var burst_chance: float = 0.24
 ## Max asteroids in one burst (actual count is 2..max inclusive when burst fires).
 @export var max_burst_count: int = 3
 

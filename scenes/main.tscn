@@ -13,8 +13,32 @@
 [ext_resource type="Texture2D" path="res://assets/art/game_over.png" id="11_game_over"]
 [ext_resource type="Texture2D" path="res://assets/art/mainMenu.png" id="12_main_menu"]
 [ext_resource type="Script" path="res://scripts/pose_input_bridge.gd" id="13_posebridge"]
+[ext_resource type="Script" path="res://scripts/webcam_debug_guides_overlay.gd" id="14_webcamguides"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weapon_bar_bg"]
+bg_color = Color(0.05, 0.08, 0.16, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.45, 0.55, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weapon_bar_fill"]
+bg_color = Color(0.25, 0.92, 1, 0.95)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gameover_btn_normal"]
 content_margin_left = 22.0
@@ -252,6 +276,41 @@ theme_override_font_sizes/font_size = 22
 text = "Score: 0"
 vertical_alignment = 1
 
+[node name="WeaponEnergyHud" type="VBoxContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel"]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 16.0
+offset_top = 52.0
+offset_right = 268.0
+offset_bottom = 102.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="WeaponEnergyLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/WeaponEnergyHud"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.1, 0.2, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 15
+text = "Blaster — 3 / 3"
+
+[node name="WeaponEnergyBar" type="ProgressBar" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/WeaponEnergyHud"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+step = 0.001
+value = 1.0
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_weapon_bar_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_weapon_bar_fill")
+
 [node name="IntroUI" type="Control" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel" unique_id=884102001]
 layout_mode = 1
 anchors_preset = 15
@@ -433,6 +492,31 @@ expand_mode = 1
 stretch_mode = 5
 mouse_filter = 2
 
+[node name="HatOverlay" type="Node2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+visible = false
+position = Vector2(400, 160)
+
+[node name="BrownHat" type="Node2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay"]
+
+[node name="Brim" type="Polygon2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/BrownHat"]
+color = Color(0.43, 0.25, 0.12, 1)
+polygon = PackedVector2Array(-18, 0, 18, 0, 12, 5, -12, 5)
+
+[node name="Crown" type="Polygon2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/BrownHat"]
+color = Color(0.56, 0.33, 0.17, 1)
+polygon = PackedVector2Array(-10, -10, 10, -10, 8, 0, -8, 0)
+
+[node name="PinkHat" type="Node2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay"]
+visible = false
+
+[node name="Brim" type="Polygon2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/PinkHat"]
+color = Color(0.95, 0.27, 0.73, 1)
+polygon = PackedVector2Array(-18, 0, 18, 0, 12, 5, -12, 5)
+
+[node name="Crown" type="Polygon2D" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/HatOverlay/PinkHat"]
+color = Color(1, 0.54, 0.86, 1)
+polygon = PackedVector2Array(-10, -10, 10, -10, 8, 0, -8, 0)
+
 [node name="HitFlashOverlay" type="ColorRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
 layout_mode = 1
 anchors_preset = 15
@@ -442,6 +526,56 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 0.12, 0.12, 0)
+
+[node name="WebcamDebugGuidesOverlay" type="Control" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("14_webcamguides")
+
+[node name="WebcamDebugToggle" type="MarginContainer" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -132.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 36.0
+grow_horizontal = 0
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
+
+[node name="DebugToggleButton" type="CheckButton" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder/WebcamDebugToggle"]
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_font_sizes/font_size = 14
+text = "Debug"
+
+[node name="HatInstructionLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -56.0
+offset_right = -10.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 13
+text = "Move your head LEFT for pink cowboy hat\\nMove your head RIGHT for brown cowboy hat"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CameraPlaceholderLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
 layout_mode = 1

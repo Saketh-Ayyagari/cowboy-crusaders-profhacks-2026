@@ -60,8 +60,8 @@ class RuntimeConfig:
     udp_port: int = int(os.getenv("POSE_UDP_PORT", "42424"))
     camera_index: int = int(os.getenv("POSE_CAMERA_INDEX", "0"))
     # Normalized horizontal displacement where lean reaches full scale.
-    lean_full_scale: float = float(os.getenv("POSE_LEAN_FULL_SCALE", "0.20"))
-    lean_deadzone: float = float(os.getenv("POSE_LEAN_DEADZONE", "0.035"))
+    lean_full_scale: float = float(os.getenv("POSE_LEAN_FULL_SCALE", "0.18"))
+    lean_deadzone: float = float(os.getenv("POSE_LEAN_DEADZONE", "0.030"))
     smooth_alpha: float = float(os.getenv("POSE_SMOOTH_ALPHA", "0.28"))
     jump_velocity_threshold: float = float(os.getenv("POSE_JUMP_VELOCITY_THRESHOLD", "-0.060"))
     jump_cooldown_s: float = float(os.getenv("POSE_JUMP_COOLDOWN_S", "0.62"))
@@ -74,8 +74,12 @@ class RuntimeConfig:
     )
     # Second UDP port for tiny JPEG preview frames (Godot TextureRect). 0 = disabled.
     preview_udp_port: int = int(os.getenv("POSE_PREVIEW_UDP_PORT", "42425"))
-    preview_every_n_frames: int = max(1, int(os.getenv("POSE_PREVIEW_EVERY_N", "2")))
+    # Send a preview JPEG every N processed frames (1 = every frame, smoothest).
+    preview_every_n_frames: int = max(1, int(os.getenv("POSE_PREVIEW_EVERY_N", "1")))
     preview_max_width: int = max(80, int(os.getenv("POSE_PREVIEW_MAX_W", "280")))
+    # Fixed JPEG dimensions so Godot TextureRect does not reflow every frame (reduces glitching).
+    preview_out_w: int = max(64, int(os.getenv("POSE_PREVIEW_OUT_W", "320")))
+    preview_out_h: int = max(48, int(os.getenv("POSE_PREVIEW_OUT_H", "180")))
 
 
 def open_cv_camera(preferred_index: int) -> tuple[cv.VideoCapture, int]:
@@ -202,23 +206,28 @@ class PoseRuntime:
         self.sock.sendto(data, (self.cfg.udp_host, self.cfg.udp_port))
         self.packet_count += 1
 
-    def _send_preview_jpeg(self, bgr_frame) -> None:
+    def _send_preview_jpeg_from_rgb(self, rgb_frame) -> None:
         if self.preview_sock is None or self.cfg.preview_udp_port <= 0:
             return
         self._preview_frame_counter += 1
         if (self._preview_frame_counter % self.cfg.preview_every_n_frames) != 0:
             return
         try:
-            h, w = bgr_frame.shape[:2]
+            # OpenCV JPEG encoder expects BGR; rgb_frame already matches what MediaPipe sees (no second flip).
+            src = cv.cvtColor(rgb_frame, cv.COLOR_RGB2BGR)
+            h, w = src.shape[:2]
+            tw, th = self.cfg.preview_out_w, self.cfg.preview_out_h
             max_w = self.cfg.preview_max_width
             if w > max_w:
                 scale = max_w / float(w)
-                new_w = max_w
-                new_h = max(1, int(h * scale))
-                small = cv.resize(bgr_frame, (new_w, new_h), interpolation=cv.INTER_AREA)
+                mid_w = max_w
+                mid_h = max(1, int(h * scale))
+                mid = cv.resize(src, (mid_w, mid_h), interpolation=cv.INTER_AREA)
             else:
-                small = bgr_frame
-            ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), 52])
+                mid = src
+            interp = cv.INTER_AREA if mid.shape[1] > tw or mid.shape[0] > th else cv.INTER_LINEAR
+            small = cv.resize(mid, (tw, th), interpolation=interp)
+            ok, buf = cv.imencode(".jpg", small, [int(cv.IMWRITE_JPEG_QUALITY), 48])
             if not ok or buf is None:
                 return
             payload = buf.tobytes()
@@ -314,9 +323,9 @@ class PoseRuntime:
                 time.sleep(max(0.01, frame_dt))
                 continue
 
-            # OpenCV uses BGR; MediaPipe expects RGB for SRGB images.
+            # One shared RGB frame for detection + preview.
             rgb = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-            self._send_preview_jpeg(frame)
+            self._send_preview_jpeg_from_rgb(rgb)
 
             head_x: Optional[float] = None
             head_y: Optional[float] = None
@@ -353,6 +362,8 @@ class PoseRuntime:
                 "lean_x": lean_x,
                 "is_centered": is_centered,
                 "jump_triggered": jump,
+                "head_x": head_x,
+                "head_y": head_y,
             }
             if self.anchor_x is not None:
                 payload["head_anchor_x"] = self.anchor_x
