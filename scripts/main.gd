@@ -3,6 +3,10 @@ extends Node2D
 ## Subtle downward scroll speed for the starfield (pixels per second).
 const BG_SCROLL_SPEED: float = 38.0
 
+## Ship intro fly-in: start Y (local to Player node) below the play area, tween to scene rest position.
+@export var intro_ship_start_y: float = 1100.0
+@export var intro_ship_fly_duration: float = 1.75
+
 const _HEART_FULL := preload("res://assets/art/heart_full.png")
 const _HEART_2_3 := preload("res://assets/art/heart_2_3.png")
 const _HEART_1_3 := preload("res://assets/art/heart_1_3.png")
@@ -42,8 +46,12 @@ const _WEBCAM_BUILTIN_NAME_HINTS: PackedStringArray = [
 @onready var _play_again_button: Button = $UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox/PlayAgainButton
 @onready var _game_root: Node2D = $GameRoot
 @onready var _spawn_manager: Node = $Managers/SpawnManager
+@onready var _intro_ui: Control = $UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI
 
+var _run_started: bool = false
 var _is_game_over: bool = false
+var _intro_ship_rest_pos: Vector2 = Vector2.ZERO
+var _intro_ship_tween: Tween
 var _logged_no_feed_yet: bool = false
 var _webcam_setup_in_progress: bool = false
 var _bg_tile_height: float = 0.0
@@ -56,6 +64,7 @@ func _ready() -> void:
 	_setup_background_parallax()
 	_setup_hearts_ui()
 	_setup_game_over_ui()
+	_setup_intro()
 	_start_debug_webcam_if_available()
 
 
@@ -74,6 +83,41 @@ func _setup_hearts_ui() -> void:
 func _setup_game_over_ui() -> void:
 	if is_instance_valid(_play_again_button) and not _play_again_button.pressed.is_connected(_on_play_again_pressed):
 		_play_again_button.pressed.connect(_on_play_again_pressed)
+
+
+func _setup_intro() -> void:
+	_run_started = false
+	if is_instance_valid(_spawn_manager):
+		_spawn_manager.process_mode = Node.PROCESS_MODE_DISABLED
+	if is_instance_valid(_player_ship):
+		_player_ship.controls_enabled = false
+	if is_instance_valid(_intro_ui):
+		_intro_ui.visible = true
+	if not is_instance_valid(_player_ship):
+		return
+	_intro_ship_rest_pos = _player_ship.position
+	_player_ship.position = Vector2(_intro_ship_rest_pos.x, intro_ship_start_y)
+	_intro_ship_tween = create_tween()
+	_intro_ship_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_intro_ship_tween.tween_property(
+		_player_ship, "position", _intro_ship_rest_pos, intro_ship_fly_duration
+	)
+
+
+## Call when the player is ready to play (Space / ui_accept now; jump later).
+func start_game() -> void:
+	if _run_started or _is_game_over:
+		return
+	_run_started = true
+	if _intro_ship_tween != null and is_instance_valid(_intro_ship_tween):
+		_intro_ship_tween.kill()
+	if is_instance_valid(_player_ship):
+		_player_ship.position = _intro_ship_rest_pos
+		_player_ship.controls_enabled = true
+	if is_instance_valid(_intro_ui):
+		_intro_ui.visible = false
+	if is_instance_valid(_spawn_manager):
+		_spawn_manager.process_mode = Node.PROCESS_MODE_INHERIT
 
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
@@ -157,12 +201,22 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _is_game_over:
-		return
 	if event.is_echo():
 		return
+	if _is_game_over:
+		if event.is_action_pressed("ui_accept"):
+			_on_play_again_pressed()
+		return
+	if not _run_started and _wants_start_input(event):
+		start_game()
+
+
+func _wants_start_input(event: InputEvent) -> bool:
 	if event.is_action_pressed("ui_accept"):
-		_on_play_again_pressed()
+		return true
+	if event is InputEventKey and event.pressed and not event.echo:
+		return event.keycode == KEY_SPACE
+	return false
 
 
 func _scroll_backgrounds(delta: float) -> void:

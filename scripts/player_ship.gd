@@ -21,6 +21,9 @@ signal health_changed(current: int, maximum: int)
 var current_health: int = 0
 var _fire_cooldown_remaining: float = 0.0
 
+## When false, movement and shooting are ignored (e.g. intro). Main enables this when the run starts.
+var controls_enabled: bool = false
+
 
 func _ready() -> void:
 	current_health = max_health
@@ -38,6 +41,8 @@ func take_damage(amount: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	if current_health <= 0:
+		return
+	if not controls_enabled:
 		return
 	_reduce_fire_cooldown(delta)
 	_handle_input()
