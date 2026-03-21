@@ -10,6 +10,15 @@ func _ready() -> void:
 	add_to_group("asteroids")
 
 
+## Sets sprite texture and multiplies fall speed (spawn manager sets speed before this).
+func setup_variant(texture: Texture2D, speed_multiplier: float = 1.0) -> void:
+	if texture != null:
+		var sprite := $AsteroidSprite as Sprite2D
+		if sprite:
+			sprite.texture = texture
+	fall_speed *= speed_multiplier
+
+
 func _process(delta: float) -> void:
 	position.y += fall_speed * delta
 

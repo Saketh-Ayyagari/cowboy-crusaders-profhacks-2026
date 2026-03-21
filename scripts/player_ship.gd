@@ -37,6 +37,8 @@ func take_damage(amount: int) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if current_health <= 0:
+		return
 	_reduce_fire_cooldown(delta)
 	_handle_input()
 	_update_position()
