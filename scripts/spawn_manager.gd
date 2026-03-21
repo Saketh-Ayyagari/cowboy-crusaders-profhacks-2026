@@ -72,10 +72,14 @@ func _spawn_asteroid() -> void:
 
 	spawned.fall_speed = base_asteroid_speed * _get_speed_scale()
 	var variant_mult := orange_speed_multiplier if is_orange else 1.0
-	spawned.setup_variant(tex, variant_mult)
+	spawned.setup_variant(tex, variant_mult, is_orange)
 
 	if is_orange:
 		print("Spawn: fast orange asteroid (x%.2f)" % variant_mult)
+
+	var main_ref := get_node_or_null("/root/Main")
+	if main_ref != null:
+		spawned.set_meta("score_session_id", main_ref.score_session_id)
 
 	container.add_child(spawned)
 	var x := randf_range(spawn_x_min, spawn_x_max)
