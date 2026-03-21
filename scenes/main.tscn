@@ -91,6 +91,17 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.11, 0.11, 0.13, 1)
 
+[node name="CameraFeed" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 0
+stretch_mode = 5
+mouse_filter = 2
+
 [node name="CameraPlaceholderLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
 layout_mode = 1
 anchors_preset = 15
