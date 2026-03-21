@@ -100,9 +100,9 @@ var _bg_base_x: float = 400.0
 var _bg_base_y: float = 450.0
 
 ## Hit feedback shake. (Game side = move GameRoot; Webcam side = move CameraPlaceholder.)
-const _HIT_SHAKE_DURATION: float = 0.22
-const _HIT_SHAKE_GAME_PIXELS: float = 10.0
-const _HIT_SHAKE_WEBCAM_PIXELS: float = 7.0
+const _HIT_SHAKE_DURATION: float = 0.28
+const _HIT_SHAKE_GAME_PIXELS: float = 18.0
+const _HIT_SHAKE_WEBCAM_PIXELS: float = 14.0
 var _game_root_base_pos: Vector2 = Vector2.ZERO
 var _camera_placeholder_base_pos: Vector2 = Vector2.ZERO
 var _last_player_health: int = -1
@@ -148,7 +148,7 @@ func _setup_audio() -> void:
 
 	if is_instance_valid(_hit_player):
 		_hit_player.stream = _SFX_PLAYER_HIT
-		_hit_player.volume_db = -3.0
+		_hit_player.volume_db = -1.0
 		_hit_player.autoplay = false
 
 	if is_instance_valid(_crash_player):
@@ -309,7 +309,7 @@ func _trigger_hit_shake() -> void:
 		_hit_shake_webcam_tween.kill()
 	_hit_shake_webcam_tween = null
 
-	var steps := 6
+	var steps := 10
 	var step_duration := _HIT_SHAKE_DURATION / float(steps)
 
 	# Game-side shake (video half).
@@ -485,7 +485,8 @@ func _start_debug_webcam_if_available() -> void:
 		print("Webcam debug: CameraFeed node not found.")
 		return
 
-	_camera_feed.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# Fill the webcam panel more aggressively so shakes feel "full frame".
+	_camera_feed.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_camera_feed.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_camera_feed.modulate = Color.WHITE
 	_camera_feed.self_modulate = Color.WHITE

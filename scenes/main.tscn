@@ -186,8 +186,10 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="GameViewportFrame" type="Panel" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameViewportCenter"]
-custom_minimum_size = Vector2(600, 900)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
 mouse_filter = 2
 
@@ -406,6 +408,7 @@ text = "Play Again"
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
 
 [node name="CameraPlaceholder" type="ColorRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel"]
 layout_mode = 1
@@ -425,7 +428,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-expand_mode = 0
+expand_mode = 1
 stretch_mode = 5
 mouse_filter = 2
 
