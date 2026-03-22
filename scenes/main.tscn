@@ -1,0 +1,434 @@
+[gd_scene format=3 uid="uid://bqsheires3ubc"]
+
+[ext_resource type="Script" uid="uid://br5ygmk0flw2e" path="res://scripts/main.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player_ship.tscn" id="2_0wfyh"]
+[ext_resource type="PackedScene" path="res://scenes/laser.tscn" id="3_sugp2"]
+[ext_resource type="Script" path="res://scripts/spawn_manager.gd" id="4_spawnmgr"]
+[ext_resource type="PackedScene" path="res://scenes/asteroid.tscn" id="5_asteroid"]
+[ext_resource type="Texture2D" path="res://assets/art/space.png" id="6_space"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_full.png" id="7_heart_full"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_2_3.png" id="8_heart_2_3"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_1_3.png" id="9_heart_1_3"]
+[ext_resource type="Texture2D" path="res://assets/art/heart_empty.png" id="10_heart_empty"]
+[ext_resource type="Texture2D" path="res://assets/art/game_over.png" id="11_game_over"]
+[ext_resource type="Texture2D" path="res://assets/art/mainMenu.png" id="12_main_menu"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_transparent"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gameover_btn_normal"]
+content_margin_left = 22.0
+content_margin_top = 14.0
+content_margin_right = 22.0
+content_margin_bottom = 14.0
+bg_color = Color(0.04, 0.07, 0.14, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.98, 1, 0.92)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.15, 0.75, 1, 0.42)
+shadow_size = 12
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gameover_btn_hover"]
+content_margin_left = 22.0
+content_margin_top = 14.0
+content_margin_right = 22.0
+content_margin_bottom = 14.0
+bg_color = Color(0.08, 0.14, 0.24, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.55, 1, 1, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.35, 0.95, 1, 0.55)
+shadow_size = 14
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gameover_btn_pressed"]
+content_margin_left = 22.0
+content_margin_top = 14.0
+content_margin_right = 22.0
+content_margin_bottom = 14.0
+bg_color = Color(0.12, 0.05, 0.18, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.95, 0.45, 1, 0.98)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.85, 0.25, 1, 0.4)
+shadow_size = 10
+shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gameover_btn_focus"]
+content_margin_left = 22.0
+content_margin_top = 14.0
+content_margin_right = 22.0
+content_margin_bottom = 14.0
+bg_color = Color(0.04, 0.07, 0.14, 0.94)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.75, 1, 0.95, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.5, 1, 1, 0.5)
+shadow_size = 16
+shadow_offset = Vector2(0, 0)
+
+[node name="Main" type="Node2D" unique_id=1489539949]
+script = ExtResource("1")
+
+[node name="GameRoot" type="Node2D" parent="." unique_id=249523961]
+
+[node name="World" type="Node2D" parent="GameRoot" unique_id=2105544912]
+
+[node name="Background" type="Sprite2D" parent="GameRoot/World"]
+z_index = -100
+texture = ExtResource("6_space")
+position = Vector2(400, 450)
+scale = Vector2(1.0, 1.0)
+
+[node name="Background2" type="Sprite2D" parent="GameRoot/World"]
+z_index = -100
+texture = ExtResource("6_space")
+position = Vector2(400, 450)
+scale = Vector2(1.0, 1.0)
+
+[node name="Player" type="Node2D" parent="GameRoot" unique_id=441456490]
+
+[node name="PlayerShip" parent="GameRoot/Player" unique_id=108775495 instance=ExtResource("2_0wfyh")]
+position = Vector2(300, 700)
+laser_scene = ExtResource("3_sugp2")
+
+[node name="Asteroids" type="Node2D" parent="GameRoot" unique_id=1582301211]
+
+[node name="Lasers" type="Node2D" parent="GameRoot" unique_id=523800813]
+
+[node name="UILayer" type="CanvasLayer" parent="." unique_id=592816020]
+
+[node name="HUD" type="Control" parent="UILayer" unique_id=733197723]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 0.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RootLayout" type="Control" parent="UILayer/HUD" unique_id=810922864]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainSplit" type="HBoxContainer" parent="UILayer/HUD/RootLayout" unique_id=699169670]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GamePanel" type="Panel" parent="UILayer/HUD/RootLayout/MainSplit" unique_id=604842327]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
+mouse_filter = 2
+
+[node name="GameViewportCenter" type="CenterContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GameViewportFrame" type="Panel" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameViewportCenter"]
+custom_minimum_size = Vector2(600, 900)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_transparent")
+mouse_filter = 2
+
+[node name="HeartsUI" type="HBoxContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel"]
+layout_mode = 1
+anchors_preset = 2
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -140.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 50.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 6
+alignment = 2
+
+[node name="Heart1" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart2" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart3" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/HeartsUI"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+texture = ExtResource("7_heart_full")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ScoreHud" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel"]
+visible = false
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 220.0
+offset_bottom = 48.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.9, 0.96, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.1, 0.2, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+text = "Score: 0"
+vertical_alignment = 1
+
+[node name="IntroUI" type="Control" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel" unique_id=884102001]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="IntroBackground" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("12_main_menu")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IntroMargin" type="MarginContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 28
+
+[node name="IntroVBox" type="VBoxContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI/IntroMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI/IntroMargin/IntroVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.98, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.12, 0.28, 1)
+theme_override_colors/font_shadow_color = Color(0, 0.55, 0.95, 0.5)
+theme_override_constants/outline_size = 6
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 44
+text = "Cowboy Crusader"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="IntroSpacer" type="Control" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI/IntroMargin/IntroVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PromptLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/IntroUI/IntroMargin/IntroVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0.04, 0.1, 0.22, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
+text = "Jump / Space to Start"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GameOverUI" type="Control" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel" unique_id=675263893]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="GameOverBackground" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("11_game_over")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MarginLayer" type="MarginContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 48
+
+[node name="CenterContent" type="CenterContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent"]
+layout_mode = 2
+theme_override_constants/separation = 28
+alignment = 1
+
+[node name="TitleLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.06, 0.18, 1)
+theme_override_colors/font_shadow_color = Color(0, 0.75, 1, 0.65)
+theme_override_constants/outline_size = 10
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 5
+theme_override_font_sizes/font_size = 56
+text = "Game Over"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.92, 1, 1)
+theme_override_colors/font_outline_color = Color(0.04, 0.1, 0.22, 1)
+theme_override_colors/font_shadow_color = Color(0.15, 0.45, 0.75, 0.45)
+theme_override_constants/outline_size = 5
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 30
+text = "Score: "
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlayAgainButton" type="Button" parent="UILayer/HUD/RootLayout/MainSplit/GamePanel/GameOverUI/MarginLayer/CenterContent/VBox"]
+custom_minimum_size = Vector2(260, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.92, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.85, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/normal = SubResource("StyleBoxFlat_gameover_btn_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_gameover_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_gameover_btn_pressed")
+theme_override_styles/focus = SubResource("StyleBoxFlat_gameover_btn_focus")
+text = "Play Again"
+
+[node name="CameraPanel" type="Panel" parent="UILayer/HUD/RootLayout/MainSplit" unique_id=573232474]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="CameraPlaceholder" type="ColorRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.11, 0.11, 0.13, 1)
+
+[node name="CameraFeed" type="TextureRect" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+modulate = Color(1, 1, 1, 1)
+self_modulate = Color(1, 1, 1, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 0
+stretch_mode = 5
+mouse_filter = 2
+
+[node name="CameraPlaceholderLabel" type="Label" parent="UILayer/HUD/RootLayout/MainSplit/CameraPanel/CameraPlaceholder"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 22
+text = "WEBCAM FEED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DebugLayer" type="CanvasLayer" parent="." unique_id=1424445014]
+
+[node name="Managers" type="Node" parent="." unique_id=1466420532]
+
+[node name="InputManager" type="Node" parent="Managers" unique_id=1373004369]
+
+[node name="GameManager" type="Node" parent="Managers" unique_id=692918556]
+
+[node name="SpawnManager" type="Node" parent="Managers" unique_id=372093159]
+script = ExtResource("4_spawnmgr")
+asteroid_scene = ExtResource("5_asteroid")
